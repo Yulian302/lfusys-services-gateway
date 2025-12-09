@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	_ "github.com/joho/godotenv/autoload"
@@ -22,5 +24,13 @@ func main() {
 		})
 	})
 
-	r.Run(addr)
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	clientStub := pb.NewGreeterClient(conn)
+
+	routers.Routes(r, clientStub)
 }
