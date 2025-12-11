@@ -15,12 +15,9 @@ import (
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	_ "github.com/joho/godotenv/autoload"
-)
-
-var (
-	addr string = common.EnvVar("HTTP_ADDR", ":8000")
 )
 
 func main() {
@@ -71,4 +68,6 @@ func main() {
 	clientStub := pb.NewGreeterClient(conn)
 
 	routers.Routes(r, clientStub)
+	routers.AuthRoutes(r, store)
+	r.Run(cfg.HTTPAddr)
 }
