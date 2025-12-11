@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -11,6 +14,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	common "github.com/Yulian302/lfusys-services-commons"
+	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-gateway/store"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -20,6 +25,20 @@ var (
 
 func main() {
 	cfg := common.LoadConfig()
+
+	// verify aws credentials
+	if cfg.AWS_ACCESS_KEY_ID == "" || cfg.AWS_SECRET_ACCESS_KEY == "" {
+		log.Fatal("aws security credentials were not found")
+	}
+
+	// create db client
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.AWS_REGION))
+	if err != nil {
+		log.Fatalf("failed to load aws config: %v", err)
+	}
+	client := dynamodb.NewFromConfig(awsCfg)
+	store := store.NewStore(client, "users")
+
 	r := gin.Default()
 
 	// tracing
