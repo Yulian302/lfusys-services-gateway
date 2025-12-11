@@ -1,5 +1,3 @@
-# dev tools (configs might fail for diff users)
-.air.toml
 
 # env variables
 .env
