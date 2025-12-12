@@ -61,7 +61,7 @@ func main() {
 		otelgrpc.WithMessageEvents(otelgrpc.ReceivedEvents), // Record message events
 	)
 
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
+	conn, err := grpc.NewClient(cfg.SessionsGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
 	if err != nil {
 		panic(err)
 	}
