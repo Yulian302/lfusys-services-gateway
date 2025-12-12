@@ -69,7 +69,7 @@ func main() {
 
 	clientStub := pb.NewGreeterClient(conn)
 	uploadsHandler := uploads.NewUploadsHandler(clientStub)
-	routers.RegisterUploadsRoutes(uploadsHandler, r)
+	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
 
 	authHandler := auth.NewAuthHandler(store, &cfg)
 	routers.RegisterAuthRoutes(authHandler, r)

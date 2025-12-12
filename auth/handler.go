@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	common "github.com/Yulian302/lfusys-services-commons"
+	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamoTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/google/uuid"
 )
 
@@ -117,10 +121,61 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
+	// access token
+	accessClaims := jwttypes.JWTClaims{
+		Issuer:    "lfusys",
+		Subject:   user.ID,
+		ExpiresAt: time.Now().Add(30 * time.Minute).Unix(),
+		IssuedAt:  time.Now().Unix(),
+	}
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+
+	s, err := t.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
+	if err != nil {
+		log.Printf("could not sign JWT token: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "token creation failed",
+		})
+		return
+	}
+
+	// refresh token
+	refreshTokenCookie, err := ctx.Cookie("refresh_token")
+	var refs string
+	if err != nil || refreshTokenCookie == "" {
+		refreshClaims := jwttypes.JWTClaims{
+			Issuer:    "lfusys",
+			Subject:   user.ID,
+			ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Unix(),
+			IssuedAt:  time.Now().Unix(),
+			Type:      "refresh",
+		}
+		ref := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+		refs, err = ref.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
+		if err != nil {
+			log.Printf("could not sign refresh token: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "token creation failed",
+			})
+			return
+		}
+		// set refresh token (30 days)
+		ctx.SetCookie(
+			"refresh_token",
+			refs,
+			30*24*60*60,
+			"/",
+			"",
+			h.config.Env != "DEV",
+			true,
+		)
+	}
+
+	// set jwt access token (30 mins)
 	ctx.SetCookie(
-		"user_id",
-		user.ID,
-		7*24*60*60,
+		"jwt",
+		s,
+		30*60,
 		"/",
 		"",
 		h.config.Env != "DEV",
@@ -129,6 +184,49 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "login successful",
-		"user_id": user.ID,
 	})
+}
+
+func (h *AuthHandler) Refresh(ctx *gin.Context) {
+	refreshToken, err := ctx.Cookie("refresh_token")
+	if err != nil || refreshToken == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "no refresh token"})
+		return
+	}
+
+	token, err := jwt.ParseWithClaims(refreshToken, &jwttypes.JWTClaims{}, func(t *jwt.Token) (any, error) {
+		return []byte(h.config.JWTConfig.SECRET_KEY), nil
+	})
+	if err != nil || !token.Valid {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
+		return
+	}
+
+	claims := token.Claims.(*jwttypes.JWTClaims)
+	if claims.Type != "refresh" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token type"})
+		return
+	}
+
+	accessClaims := jwttypes.JWTClaims{
+		Issuer:    "lfusys",
+		Subject:   claims.Subject,
+		ExpiresAt: time.Now().Add(30 * time.Minute).Unix(),
+		IssuedAt:  time.Now().Unix(),
+	}
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	s, err := t.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "token creation failed"})
+		return
+	}
+
+	ctx.SetCookie("jwt", s, 30*60, "/", "", h.config.Env != "DEV", true)
+	ctx.JSON(http.StatusOK, gin.H{"message": "token refreshed"})
+}
+
+func (h *AuthHandler) Logout(ctx *gin.Context) {
+	ctx.SetCookie("jwt", "", -1, "/", "", h.config.Env != "DEV", true)
+	ctx.SetCookie("refresh_token", "", -1, "/", "", h.config.Env != "DEV", true)
+	ctx.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }

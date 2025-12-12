@@ -10,4 +10,6 @@ func RegisterAuthRoutes(h *auth.AuthHandler, route *gin.Engine) {
 
 	auth.POST("/register", h.Register)
 	auth.POST("/login", h.Login)
+	auth.POST("/refresh", h.Refresh)
+	auth.POST("/logout", h.Logout)
 }
