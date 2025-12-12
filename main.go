@@ -15,8 +15,10 @@ import (
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-gateway/auth"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/store"
+	"github.com/Yulian302/lfusys-services-gateway/uploads"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -66,8 +68,11 @@ func main() {
 	defer conn.Close()
 
 	clientStub := pb.NewGreeterClient(conn)
+	uploadsHandler := uploads.NewUploadsHandler(clientStub)
+	routers.RegisterUploadsRoutes(uploadsHandler, r)
 
-	routers.Routes(r, clientStub)
-	routers.AuthRoutes(r, store)
+	authHandler := auth.NewAuthHandler(store, &cfg)
+	routers.RegisterAuthRoutes(authHandler, r)
+
 	r.Run(cfg.HTTPAddr)
 }
