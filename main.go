@@ -61,7 +61,7 @@ func main() {
 		otelgrpc.WithMessageEvents(otelgrpc.ReceivedEvents), // Record message events
 	)
 
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
+	conn, err := grpc.NewClient(cfg.SessionsGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
 	if err != nil {
 		panic(err)
 	}
@@ -69,7 +69,7 @@ func main() {
 
 	clientStub := pb.NewGreeterClient(conn)
 	uploadsHandler := uploads.NewUploadsHandler(clientStub)
-	routers.RegisterUploadsRoutes(uploadsHandler, r)
+	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
 
 	authHandler := auth.NewAuthHandler(store, &cfg)
 	routers.RegisterAuthRoutes(authHandler, r)
