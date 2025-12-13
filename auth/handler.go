@@ -34,6 +34,32 @@ func NewAuthHandler(store *store.DynamoDbStore, config *common.Config) *AuthHand
 	}
 }
 
+func (h *AuthHandler) Me(ctx *gin.Context) {
+	token, err := ctx.Cookie("jwt")
+	if err != nil || token == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
+		})
+		return
+	}
+
+	parsedToken, err := jwt.ParseWithClaims(token, &jwttypes.JWTClaims{}, func(t *jwt.Token) (any, error) {
+		return []byte(h.config.JWTConfig.SECRET_KEY), nil
+	})
+
+	if err != nil || !parsedToken.Valid {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+
+	claims := parsedToken.Claims.(*jwttypes.JWTClaims)
+	ctx.JSON(http.StatusOK, gin.H{
+		"user_id":       claims.Subject,
+		"authenticated": true,
+	})
+
+}
+
 func (h *AuthHandler) Register(ctx *gin.Context) {
 	var req types.RegisterUser
 	if err := ctx.ShouldBindJSON(&req); err != nil {
