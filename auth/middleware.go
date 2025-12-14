@@ -27,7 +27,7 @@ func JWTMiddleware(secretKey string) gin.HandlerFunc {
 		}
 
 		claims := parsedToken.Claims.(*jwttypes.JWTClaims)
-		ctx.Set("user_id", claims.Subject)
+		ctx.Set("email", claims.Subject)
 		ctx.Next()
 	}
 }

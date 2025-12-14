@@ -8,6 +8,7 @@ import (
 func RegisterAuthRoutes(h *auth.AuthHandler, route *gin.Engine) {
 	auth := route.Group("/auth")
 
+	auth.GET("/me", h.Me)
 	auth.POST("/register", h.Register)
 	auth.POST("/login", h.Login)
 	auth.POST("/refresh", h.Refresh)
