@@ -53,8 +53,29 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 	}
 
 	claims := parsedToken.Claims.(*jwttypes.JWTClaims)
+
+	res, err := h.store.Client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: &h.store.TableName,
+		Key: map[string]dynamoTypes.AttributeValue{
+			"email": &dynamoTypes.AttributeValueMemberS{Value: claims.Subject},
+		},
+	})
+	if err != nil {
+		log.Printf("could not find user: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not get user data"})
+		return
+	}
+
+	var user types.User
+	if err = attributevalue.UnmarshalMap(res.Item, &user); err != nil {
+		log.Printf("could not unmarshal user: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not get user data"})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"user_id":       claims.Subject,
+		"email":         claims.Subject,
+		"username":      user.Name,
 		"authenticated": true,
 	})
 
@@ -150,7 +171,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	// access token
 	accessClaims := jwttypes.JWTClaims{
 		Issuer:    "lfusys",
-		Subject:   user.ID,
+		Subject:   user.Email,
 		ExpiresAt: time.Now().Add(30 * time.Minute).Unix(),
 		IssuedAt:  time.Now().Unix(),
 	}
@@ -171,7 +192,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	if err != nil || refreshTokenCookie == "" {
 		refreshClaims := jwttypes.JWTClaims{
 			Issuer:    "lfusys",
-			Subject:   user.ID,
+			Subject:   user.Email,
 			ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Type:      "refresh",
