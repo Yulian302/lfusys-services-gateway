@@ -1,0 +1,74 @@
+basePath: /api/
+definitions:
+  uploads.HTTPError:
+    properties:
+      error:
+        example: error message
+        type: string
+    type: object
+  uploads.UploadRequest:
+    properties:
+      file_size:
+        type: string
+    required:
+    - file_size
+    type: object
+  uploads.UploadResponse:
+    properties:
+      total_chunks:
+        type: integer
+      upload_id:
+        type: string
+      upload_urls:
+        items:
+          type: string
+        type: array
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:8080
+info:
+  contact: {}
+  description: LFU Sys API gateway
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: LFU Sys API
+  version: "1.0"
+paths:
+  /uploads/start:
+    post:
+      consumes:
+      - application/json
+      description: Start an upload session by getting a file size
+      parameters:
+      - description: Upload request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/uploads.UploadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Upload info
+          schema:
+            $ref: '#/definitions/uploads.UploadResponse'
+        "400":
+          description: Bad request params
+          schema:
+            $ref: '#/definitions/uploads.HTTPError'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/uploads.HTTPError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/uploads.HTTPError'
+      summary: Start an upload session
+      tags:
+      - uploads
+swagger: "2.0"
