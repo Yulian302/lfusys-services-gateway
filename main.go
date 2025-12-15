@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -17,12 +19,26 @@ import (
 	common "github.com/Yulian302/lfusys-services-commons"
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-gateway/auth"
+	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/Yulian302/lfusys-services-gateway/uploads"
 	_ "github.com/joho/godotenv/autoload"
 )
 
+// @title LFU Sys API
+// @version 1.0
+// @description LFU Sys API gateway
+// @swagger 2.0
+
+// @license.name Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /api/
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
 func main() {
 	cfg := common.LoadConfig()
 
@@ -83,6 +99,10 @@ func main() {
 
 	authHandler := auth.NewAuthHandler(store, &cfg)
 	routers.RegisterAuthRoutes(authHandler, r)
+
+	if cfg.Env != "PROD" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	r.Run(cfg.HTTPAddr)
 }

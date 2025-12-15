@@ -1,0 +1,112 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "LFU Sys API gateway",
+        "title": "LFU Sys API",
+        "contact": {},
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/",
+    "paths": {
+        "/uploads/start": {
+            "post": {
+                "description": "Start an upload session by getting a file size",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uploads"
+                ],
+                "summary": "Start an upload session",
+                "parameters": [
+                    {
+                        "description": "Upload request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/uploads.UploadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Upload info",
+                        "schema": {
+                            "$ref": "#/definitions/uploads.UploadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request params",
+                        "schema": {
+                            "$ref": "#/definitions/uploads.HTTPError"
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated",
+                        "schema": {
+                            "$ref": "#/definitions/uploads.HTTPError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/uploads.HTTPError"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "uploads.HTTPError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "error message"
+                }
+            }
+        },
+        "uploads.UploadRequest": {
+            "type": "object",
+            "required": [
+                "file_size"
+            ],
+            "properties": {
+                "file_size": {
+                    "type": "string"
+                }
+            }
+        },
+        "uploads.UploadResponse": {
+            "type": "object",
+            "properties": {
+                "total_chunks": {
+                    "type": "integer"
+                },
+                "upload_id": {
+                    "type": "string"
+                },
+                "upload_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    },
+    "externalDocs": {
+        "description": "OpenAPI",
+        "url": "https://swagger.io/resources/open-api/"
+    }
+}
