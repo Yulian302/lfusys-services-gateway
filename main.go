@@ -93,7 +93,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	clientStub := pb.NewGreeterClient(conn)
+	clientStub := pb.NewUploaderClient(conn)
 	uploadsHandler := uploads.NewUploadsHandler(clientStub)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
 
