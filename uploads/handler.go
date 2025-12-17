@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-commons/errors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,10 +17,6 @@ func NewUploadsHandler(cb pb.UploaderClient) *UploadsHandler {
 	return &UploadsHandler{
 		clientStub: cb,
 	}
-}
-
-type HTTPError struct {
-	Error string `json:"error" example:"error message"`
 }
 
 type UploadRequest struct {
@@ -47,24 +44,18 @@ type UploadResponse struct {
 func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
 	email := ctx.GetString("email")
 	if email == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "user not authenticated",
-		})
+		errors.Unauthorized(ctx, "user not authenticated")
 		return
 	}
 	var uploadReq UploadRequest
 	if err := ctx.ShouldBindJSON(&uploadReq); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid fields",
-		})
+		errors.BadRequestError(ctx, err.Error())
 		return
 	}
 
 	fileSize, err := strconv.ParseUint(uploadReq.FileSize, 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid file_size",
-		})
+		errors.InternalServerError(ctx, "failed to check existing session")
 		return
 	}
 	res, err := h.clientStub.StartUpload(ctx, &pb.UploadRequest{
@@ -72,9 +63,7 @@ func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
 		FileSize:  uint64(fileSize),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "could not receive response from server",
-		})
+		errors.InternalServerError(ctx, "could not receive response from server")
 		return
 	}
 	ctx.JSON(http.StatusOK, UploadResponse{

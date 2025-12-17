@@ -9,7 +9,9 @@ import (
 	"time"
 
 	common "github.com/Yulian302/lfusys-services-commons"
+	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
+	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,6 +22,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/google/uuid"
+)
+
+const (
+	AccessTokenDuration  = 30 * time.Minute
+	RefreshTokenDuration = 30 * 24 * time.Hour
+	CookiePath           = "/"
 )
 
 type AuthHandler struct {
@@ -37,9 +45,7 @@ func NewAuthHandler(store *store.DynamoDbStore, config *common.Config) *AuthHand
 func (h *AuthHandler) Me(ctx *gin.Context) {
 	token, err := ctx.Cookie("jwt")
 	if err != nil || token == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
-		})
+		errors.Unauthorized(ctx, "unauthorized")
 		return
 	}
 
@@ -48,7 +54,7 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 	})
 
 	if err != nil || !parsedToken.Valid {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		errors.Unauthorized(ctx, "invalid token")
 		return
 	}
 
@@ -61,22 +67,22 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 		},
 	})
 	if err != nil {
-		log.Printf("could not find user: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not get user data"})
+		log.Printf("could not get user record: %v", err)
+		errors.InternalServerError(ctx, "could not get user data")
 		return
 	}
 
 	var user types.User
 	if err = attributevalue.UnmarshalMap(res.Item, &user); err != nil {
 		log.Printf("could not unmarshal user: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not get user data"})
+		errors.InternalServerError(ctx, "could not get user data")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"email":         claims.Subject,
-		"username":      user.Name,
-		"authenticated": true,
+	responses.JSONData(ctx, http.StatusOK, types.MeResponse{
+		Email:         claims.Subject,
+		Name:          user.Name,
+		Authenticated: true,
 	})
 
 }
@@ -84,7 +90,7 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 func (h *AuthHandler) Register(ctx *gin.Context) {
 	var req types.RegisterUser
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid input"})
+		errors.BadRequestError(ctx, err.Error())
 		return
 	}
 
@@ -99,9 +105,7 @@ func (h *AuthHandler) Register(ctx *gin.Context) {
 
 	userItem, err := attributevalue.MarshalMap(user)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "could not marshal user, bad fields",
-		})
+		errors.BadRequestError(ctx, err.Error())
 		return
 	}
 
@@ -112,28 +116,22 @@ func (h *AuthHandler) Register(ctx *gin.Context) {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "ConditionalCheckFailedException") {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "user already exists"})
+			errors.JSONError(ctx, http.StatusConflict, "user already exists")
 			return
 		}
 		log.Printf("Couldn't add item to table. Here's why: %v\n", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "could not create user",
-		})
+		errors.InternalServerError(ctx, "could not create user")
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "created",
-	})
+	responses.JSONCreated(ctx, "created")
 }
 
 func (h *AuthHandler) Login(ctx *gin.Context) {
 	var loginUser types.LoginUser
 
 	if err := ctx.ShouldBindJSON(&loginUser); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid input",
-		})
+		errors.BadRequestError(ctx, err.Error())
 		return
 	}
 	res, err := h.store.Client.GetItem(ctx, &dynamodb.GetItemInput{
@@ -143,16 +141,14 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		},
 	})
 	if err != nil || res.Item == nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid credentials",
-		})
+		errors.Unauthorized(ctx, "invalid credentials")
 		return
 	}
 
 	var user types.User
 
 	if err = attributevalue.UnmarshalMap(res.Item, &user); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not parse user data"})
+		errors.InternalServerError(ctx, "could not parse user data")
 		return
 	}
 
@@ -172,7 +168,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	accessClaims := jwttypes.JWTClaims{
 		Issuer:    "lfusys",
 		Subject:   user.Email,
-		ExpiresAt: time.Now().Add(30 * time.Minute).Unix(),
+		ExpiresAt: time.Now().Add(AccessTokenDuration).Unix(),
 		IssuedAt:  time.Now().Unix(),
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
@@ -180,9 +176,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	s, err := t.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
 	if err != nil {
 		log.Printf("could not sign JWT token: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "token creation failed",
-		})
+		errors.InternalServerError(ctx, "token creation failed")
 		return
 	}
 
@@ -193,7 +187,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		refreshClaims := jwttypes.JWTClaims{
 			Issuer:    "lfusys",
 			Subject:   user.Email,
-			ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Unix(),
+			ExpiresAt: time.Now().Add(RefreshTokenDuration).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Type:      "refresh",
 		}
@@ -201,9 +195,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		refs, err = ref.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
 		if err != nil {
 			log.Printf("could not sign refresh token: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": "token creation failed",
-			})
+			errors.InternalServerError(ctx, "token creation failed")
 			return
 		}
 		// set refresh token (30 days)
@@ -211,7 +203,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 			"refresh_token",
 			refs,
 			30*24*60*60,
-			"/",
+			CookiePath,
 			"",
 			h.config.Env != "DEV",
 			true,
@@ -223,21 +215,19 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		"jwt",
 		s,
 		30*60,
-		"/",
+		CookiePath,
 		"",
 		h.config.Env != "DEV",
 		true,
 	)
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "login successful",
-	})
+	responses.JSONSuccess(ctx, "login successful")
 }
 
 func (h *AuthHandler) Refresh(ctx *gin.Context) {
 	refreshToken, err := ctx.Cookie("refresh_token")
 	if err != nil || refreshToken == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "no refresh token"})
+		errors.Unauthorized(ctx, "missing refresh token")
 		return
 	}
 
@@ -245,13 +235,13 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 		return []byte(h.config.JWTConfig.SECRET_KEY), nil
 	})
 	if err != nil || !token.Valid {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
+		errors.Unauthorized(ctx, "invalid refresh token")
 		return
 	}
 
 	claims := token.Claims.(*jwttypes.JWTClaims)
 	if claims.Type != "refresh" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token type"})
+		errors.Unauthorized(ctx, "invalid token type")
 		return
 	}
 
@@ -264,16 +254,16 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	s, err := t.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "token creation failed"})
+		errors.InternalServerError(ctx, "token creation failed")
 		return
 	}
 
-	ctx.SetCookie("jwt", s, 30*60, "/", "", h.config.Env != "DEV", true)
-	ctx.JSON(http.StatusOK, gin.H{"message": "token refreshed"})
+	ctx.SetCookie("jwt", s, 30*60, CookiePath, "", h.config.Env != "DEV", true)
+	responses.JSONSuccess(ctx, "token refreshed")
 }
 
 func (h *AuthHandler) Logout(ctx *gin.Context) {
-	ctx.SetCookie("jwt", "", -1, "/", "", h.config.Env != "DEV", true)
-	ctx.SetCookie("refresh_token", "", -1, "/", "", h.config.Env != "DEV", true)
-	ctx.JSON(http.StatusOK, gin.H{"message": "logged out"})
+	ctx.SetCookie("jwt", "", -1, CookiePath, "", h.config.Env != "DEV", true)
+	ctx.SetCookie("refresh_token", "", -1, CookiePath, "", h.config.Env != "DEV", true)
+	responses.JSONSuccess(ctx, "logged out")
 }
