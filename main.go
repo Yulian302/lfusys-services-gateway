@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -18,6 +17,7 @@ import (
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
@@ -53,7 +53,7 @@ func main() {
 		log.Fatalf("failed to load aws config: %v", err)
 	}
 	client := dynamodb.NewFromConfig(awsCfg)
-	store := store.NewStore(client, "users")
+	store := store.NewStore(client, cfg.DynamoDBConfig.DynamoDbUsersTableName, cfg.DynamoDBConfig.DynamoDbUploadsTableName)
 
 	r := gin.Default()
 
@@ -77,9 +77,7 @@ func main() {
 	}
 
 	r.GET("/test", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{
-			"message": "ok",
-		})
+		responses.JSONSuccess(ctx, "ok")
 	})
 
 	// tel
@@ -94,7 +92,7 @@ func main() {
 	defer conn.Close()
 
 	clientStub := pb.NewUploaderClient(conn)
-	uploadsHandler := uploads.NewUploadsHandler(clientStub)
+	uploadsHandler := uploads.NewUploadsHandler(clientStub, store)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
 
 	authHandler := auth.NewAuthHandler(store, &cfg)

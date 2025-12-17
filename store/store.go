@@ -6,16 +6,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-// handles user auth
 type DynamoDbStore struct {
-	Client    *dynamodb.Client
-	TableName string
+	Client           *dynamodb.Client
+	UsersTableName   string
+	UploadsTableName string
 }
 
-func NewStore(dbClient *dynamodb.Client, tbname string) *DynamoDbStore {
+func NewStore(dbClient *dynamodb.Client, utable string, uptable string) *DynamoDbStore {
 	return &DynamoDbStore{
-		Client:    dbClient,
-		TableName: tbname,
+		Client:           dbClient,
+		UsersTableName:   utable,
+		UploadsTableName: uptable,
 	}
 }
 

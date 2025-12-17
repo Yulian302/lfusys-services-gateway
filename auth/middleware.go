@@ -1,8 +1,7 @@
 package auth
 
 import (
-	"net/http"
-
+	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -12,7 +11,7 @@ func JWTMiddleware(secretKey string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		token, err := ctx.Cookie("jwt")
 		if err != nil || token == "" {
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			errors.Unauthorized(ctx, "unauthorized")
 			ctx.Abort()
 			return
 		}
@@ -21,7 +20,7 @@ func JWTMiddleware(secretKey string) gin.HandlerFunc {
 			return []byte(secretKey), nil
 		})
 		if err != nil {
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			errors.Unauthorized(ctx, "invalid token")
 			ctx.Abort()
 			return
 		}

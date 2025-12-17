@@ -15,3 +15,9 @@ type LoginUser struct {
 	Email    string `json:"email" dynamodbav:"email" binding:"required,email"`
 	Password string `json:"password" dynamodbav:"password" binding:"required,min=6"`
 }
+
+type MeResponse struct {
+	Email         string `json:"email"`
+	Name          string `json:"username"`
+	Authenticated bool   `json:"authenticated"`
+}
