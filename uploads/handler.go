@@ -2,25 +2,30 @@ package uploads
 
 import (
 	"net/http"
-	"strconv"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/errors"
+	"github.com/Yulian302/lfusys-services-gateway/store"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gin-gonic/gin"
 )
 
 type UploadsHandler struct {
 	clientStub pb.UploaderClient
+	store      *store.DynamoDbStore
 }
 
-func NewUploadsHandler(cb pb.UploaderClient) *UploadsHandler {
+func NewUploadsHandler(cb pb.UploaderClient, store *store.DynamoDbStore) *UploadsHandler {
 	return &UploadsHandler{
 		clientStub: cb,
+		store:      store,
 	}
 }
 
 type UploadRequest struct {
-	FileSize string `json:"file_size" binding:"required"`
+	FileSize uint64 `json:"file_size" binding:"required"`
 }
 
 type UploadResponse struct {
@@ -53,14 +58,36 @@ func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
 		return
 	}
 
-	fileSize, err := strconv.ParseUint(uploadReq.FileSize, 10, 64)
+	if uploadReq.FileSize > 10*1024*1024*1024 {
+		errors.BadRequestError(ctx, "file size exceeds 10GB limit")
+		return
+	}
+	out, err := h.store.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              &h.store.UploadsTableName,
+		IndexName:              aws.String("user_email-index"),
+		KeyConditionExpression: aws.String("user_email = :email"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":email": &types.AttributeValueMemberS{Value: email},
+		},
+	})
 	if err != nil {
 		errors.InternalServerError(ctx, "failed to check existing session")
 		return
 	}
+	if len(out.Items) > 0 {
+		for _, item := range out.Items {
+			if status, exists := item["status"]; exists {
+				if statusStr := status.(*types.AttributeValueMemberS).Value; statusStr == "pending" || statusStr == "in_progress" {
+					errors.JSONError(ctx, http.StatusConflict, "active upload session already exists")
+					return
+				}
+			}
+		}
+	}
+
 	res, err := h.clientStub.StartUpload(ctx, &pb.UploadRequest{
 		UserEmail: email,
-		FileSize:  uint64(fileSize),
+		FileSize:  uint64(uploadReq.FileSize),
 	})
 	if err != nil {
 		errors.InternalServerError(ctx, "could not receive response from server")
