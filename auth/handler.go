@@ -1,14 +1,13 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	common "github.com/Yulian302/lfusys-services-commons"
+	"github.com/Yulian302/lfusys-services-commons/crypt"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
 	"github.com/Yulian302/lfusys-services-commons/responses"
@@ -61,7 +60,7 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 	claims := parsedToken.Claims.(*jwttypes.JWTClaims)
 
 	res, err := h.store.Client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: &h.store.TableName,
+		TableName: &h.store.UsersTableName,
 		Key: map[string]dynamoTypes.AttributeValue{
 			"email": &dynamoTypes.AttributeValueMemberS{Value: claims.Subject},
 		},
@@ -97,9 +96,7 @@ func (h *AuthHandler) Register(ctx *gin.Context) {
 	var user types.User
 	user.Email = req.Email
 	user.Name = req.Name
-	hasher := sha256.New()
-	hasher.Write([]byte(req.Password))
-	user.Password = hex.EncodeToString(hasher.Sum(nil))
+	user.Password, user.Salt = crypt.HashPasswordWithSalt(req.Password)
 	uuidVal := uuid.New()
 	user.ID = uuidVal.String()
 
@@ -110,7 +107,7 @@ func (h *AuthHandler) Register(ctx *gin.Context) {
 	}
 
 	_, err = h.store.Client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName:           aws.String(h.store.TableName),
+		TableName:           aws.String(h.store.UsersTableName),
 		Item:                userItem,
 		ConditionExpression: aws.String("attribute_not_exists(email)"),
 	})
@@ -135,7 +132,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 	res, err := h.store.Client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(h.store.TableName),
+		TableName: aws.String(h.store.UsersTableName),
 		Key: map[string]dynamoTypes.AttributeValue{
 			"email": &dynamoTypes.AttributeValueMemberS{Value: loginUser.Email},
 		},
@@ -152,15 +149,8 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
-	// verify password
-	hasher := sha256.New()
-	hasher.Write([]byte(loginUser.Password))
-	hashedPassword := hex.EncodeToString(hasher.Sum(nil))
-
-	if user.Password != hashedPassword {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "invalid credentials",
-		})
+	if !crypt.VerifyPasswordWithSalt(loginUser.Password, user.Password, user.Salt) {
+		errors.Unauthorized(ctx, "invalid credentials")
 		return
 	}
 

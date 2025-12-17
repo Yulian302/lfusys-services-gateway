@@ -1,7 +1,8 @@
 package types
 
 type User struct {
-	ID string `json:"id" dynamodbav:"id"`
+	ID   string `json:"id" dynamodbav:"id"`
+	Salt string `json:"-" dynamodbav:"salt"`
 	RegisterUser
 }
 
