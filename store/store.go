@@ -16,6 +16,10 @@ type UserStore interface {
 	Create(ctx context.Context, user types.User) error
 }
 
+type UploadsStore interface {
+	FindExisting(ctx context.Context, email string) (bool, error)
+}
+
 type DynamoDbStore struct {
 	Client           *dynamodb.Client
 	UsersTableName   string
@@ -60,4 +64,29 @@ func (s *DynamoDbStore) Create(ctx context.Context, user types.User) error {
 		Item:      item,
 	})
 	return err
+}
+
+func (s *DynamoDbStore) FindExisting(ctx context.Context, email string) (bool, error) {
+	out, err := s.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              &s.UploadsTableName,
+		IndexName:              aws.String("user_email-index"),
+		KeyConditionExpression: aws.String("user_email = :email"),
+		ExpressionAttributeValues: map[string]dynamoTypes.AttributeValue{
+			":email": &dynamoTypes.AttributeValueMemberS{Value: email},
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	if len(out.Items) > 0 {
+		for _, item := range out.Items {
+			if status, exists := item["status"]; exists {
+				if statusStr := status.(*dynamoTypes.AttributeValueMemberS).Value; statusStr == "pending" || statusStr == "in_progress" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
