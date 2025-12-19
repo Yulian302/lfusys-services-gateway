@@ -1,60 +1,48 @@
-package auth
+package auth_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	"github.com/Yulian302/lfusys-services-commons/crypt"
-	"github.com/Yulian302/lfusys-services-commons/jwt"
+	"github.com/Yulian302/lfusys-services-commons/test"
+	"github.com/Yulian302/lfusys-services-commons/test/mocks"
+	"github.com/Yulian302/lfusys-services-gateway/auth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	authtypes "github.com/Yulian302/lfusys-services-gateway/auth/types"
+	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 var (
-	cfg       *common.Config
+	cfg       common.Config
+	mockStore *mocks.MockDynamoDbStore
 	r         *gin.Engine
-	mockStore *MockDynamoDbStore
 )
-
-type MockDynamoDbStore struct {
-	mock.Mock
-}
-
-func (m *MockDynamoDbStore) GetByEmail(
-	ctx context.Context,
-	email string,
-) (*authtypes.User, error) {
-	args := m.Called(ctx, email)
-	return args.Get(0).(*authtypes.User), args.Error(1)
-}
-
-func (m *MockDynamoDbStore) Create(
-	ctx context.Context,
-	user authtypes.User,
-) error {
-	args := m.Called(ctx, user)
-	return args.Error(0)
-}
 
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
-	cfg = &common.Config{
-		JWTConfig: &jwt.JWTConfig{
-			SECRET_KEY: "dNlbJEyipTrofVIJOgHWwvVLU4cIAMS6CxkVAHFxHAs=",
-		},
-		Env: "TEST",
-	}
 
-	mockStore = &MockDynamoDbStore{}
+	cfg = common.LoadConfig()
+
+	mockStore = &mocks.MockDynamoDbStore{}
+
+	r = gin.Default()
+
+	authHandler := auth.NewAuthHandler(mockStore, &cfg)
+	routers.RegisterAuthRoutes(authHandler, r)
+
+	os.Exit(m.Run())
+}
+
+func TestLogin_Success(t *testing.T) {
+	mockStore.ResetMock()
 
 	hashed, salt := crypt.HashPasswordWithSalt("password123")
 
@@ -73,43 +61,13 @@ func TestMain(m *testing.M) {
 		nil,
 	)
 
-	mockStore.On(
-		"Create",
-		mock.Anything,
-		mock.AnythingOfType("types.User"),
-	).Return(
-		nil,
-	)
-
-	r = gin.Default()
-
-	handler := NewAuthHandler(mockStore, cfg)
-
-	r.POST("/auth/login", handler.Login)
-	r.POST("/auth/register", handler.Register)
-
-	os.Exit(m.Run())
-}
-
-func resetMock() {
-	mockStore.ExpectedCalls = nil
-	mockStore.Calls = nil
-}
-
-func TestLogin_Success(t *testing.T) {
-	resetMock()
-
 	reqBody := authtypes.LoginUser{
 		Email:    "test@gmail.com",
 		Password: "password123",
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	w := test.PerformRequest(r, t, "POST", "/auth/login", bytes.NewReader(body), []string{"Content-Type: application/json"})
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "login successful")
@@ -118,7 +76,15 @@ func TestLogin_Success(t *testing.T) {
 }
 
 func TestRegister_Success(t *testing.T) {
-	resetMock()
+	mockStore.ResetMock()
+
+	mockStore.On(
+		"Create",
+		mock.Anything,
+		mock.AnythingOfType("types.User"),
+	).Return(
+		nil,
+	)
 
 	reqBody := types.RegisterUser{
 		Name:     "Test",
@@ -127,11 +93,7 @@ func TestRegister_Success(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	w := test.PerformRequest(r, t, "POST", "/auth/register", bytes.NewReader(body), []string{"Content-Type: application/json"})
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 	mockStore.AssertExpectations(t)
