@@ -67,7 +67,17 @@ func TestLogin_Success(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	w := test.PerformRequest(r, t, "POST", "/auth/login", bytes.NewReader(body), []string{"Content-Type: application/json"})
+	w := test.PerformRequest(
+		r,
+		t,
+		"POST",
+		"/auth/login",
+		bytes.NewReader(body),
+		[]string{"Content-Type: application/json"},
+		false,
+		"",
+		"",
+	)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "login successful")
@@ -93,7 +103,17 @@ func TestRegister_Success(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	w := test.PerformRequest(r, t, "POST", "/auth/register", bytes.NewReader(body), []string{"Content-Type: application/json"})
+	w := test.PerformRequest(
+		r,
+		t,
+		"POST",
+		"/auth/register",
+		bytes.NewReader(body),
+		[]string{"Content-Type: application/json"},
+		false,
+		"",
+		"",
+	)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 	mockStore.AssertExpectations(t)

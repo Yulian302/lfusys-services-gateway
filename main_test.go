@@ -26,7 +26,17 @@ func TestMain(m *testing.M) {
 }
 
 func TestPingRoute(t *testing.T) {
-	w := test.PerformRequest(r, t, "GET", "/test", nil, nil)
+	w := test.PerformRequest(
+		r,
+		t,
+		"GET",
+		"/test",
+		nil,
+		nil,
+		false,
+		"",
+		"",
+	)
 
 	assert.Equal(t, 200, w.Code)
 	assert.Contains(t, w.Body.String(), "ok")
