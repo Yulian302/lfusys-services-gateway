@@ -45,7 +45,7 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 	}
 
 	parsedToken, err := jwt.ParseWithClaims(token, &jwttypes.JWTClaims{}, func(t *jwt.Token) (any, error) {
-		return []byte(h.config.JWTConfig.SECRET_KEY), nil
+		return []byte(h.config.JWTConfig.SecretKey), nil
 	})
 
 	if err != nil || !parsedToken.Valid {
@@ -128,7 +128,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 
-	s, err := t.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
+	s, err := t.SignedString([]byte(h.config.JWTConfig.SecretKey))
 	if err != nil {
 		log.Printf("could not sign JWT token: %v", err)
 		errors.InternalServerError(ctx, "token creation failed")
@@ -146,7 +146,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		JTI:       refreshJti,
 	}
 	ref := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refs, err := ref.SignedString([]byte(h.config.JWTConfig.REFRESH_SECRET_KEY))
+	refs, err := ref.SignedString([]byte(h.config.JWTConfig.RefreshSecretKey))
 	if err != nil {
 		log.Printf("could not sign refresh token: %v", err)
 		errors.InternalServerError(ctx, "token creation failed")
@@ -185,7 +185,7 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 	}
 
 	token, err := jwt.ParseWithClaims(oldRefreshToken, &jwttypes.JWTClaims{}, func(t *jwt.Token) (any, error) {
-		return []byte(h.config.JWTConfig.REFRESH_SECRET_KEY), nil
+		return []byte(h.config.JWTConfig.RefreshSecretKey), nil
 	})
 	if err != nil || !token.Valid {
 		errors.Unauthorized(ctx, "invalid refresh token")
@@ -214,7 +214,7 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 		JTI:       accessJti,
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	s, err := t.SignedString([]byte(h.config.JWTConfig.SECRET_KEY))
+	s, err := t.SignedString([]byte(h.config.JWTConfig.SecretKey))
 	if err != nil {
 		errors.InternalServerError(ctx, "token creation failed")
 		return
@@ -230,7 +230,7 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 		JTI:       refreshJti,
 	}
 	newRefToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newRefClaims)
-	refs, err := newRefToken.SignedString([]byte(h.config.JWTConfig.REFRESH_SECRET_KEY))
+	refs, err := newRefToken.SignedString([]byte(h.config.JWTConfig.RefreshSecretKey))
 	if err != nil {
 		errors.InternalServerError(ctx, "refresh token creation failed")
 		return

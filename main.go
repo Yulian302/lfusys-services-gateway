@@ -42,18 +42,17 @@ import (
 func main() {
 	cfg := common.LoadConfig()
 
-	// verify aws credentials
-	if cfg.AWS_ACCESS_KEY_ID == "" || cfg.AWS_SECRET_ACCESS_KEY == "" {
+	if err := cfg.AWSConfig.ValidateSecrets(); err != nil {
 		log.Fatal("aws security credentials were not found")
 	}
 
 	// create db client
-	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.AWS_REGION))
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.AWSConfig.Region))
 	if err != nil {
 		log.Fatalf("failed to load aws config: %v", err)
 	}
 	client := dynamodb.NewFromConfig(awsCfg)
-	store := store.NewStore(client, cfg.DynamoDBConfig.DynamoDbUsersTableName, cfg.DynamoDBConfig.DynamoDbUploadsTableName)
+	store := store.NewStore(client, cfg.DynamoDBConfig.UsersTableName, cfg.DynamoDBConfig.UploadsTableName)
 
 	r := gin.Default()
 
@@ -85,7 +84,7 @@ func main() {
 		otelgrpc.WithMessageEvents(otelgrpc.ReceivedEvents), // Record message events
 	)
 
-	conn, err := grpc.NewClient(cfg.SessionsGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
+	conn, err := grpc.NewClient(cfg.ServiceConfig.SessionGRPCUrl, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
 	if err != nil {
 		panic(err)
 	}
@@ -93,14 +92,14 @@ func main() {
 
 	clientStub := pb.NewUploaderClient(conn)
 	uploadsHandler := uploads.NewUploadsHandler(clientStub, store)
-	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
+	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
 	authHandler := auth.NewAuthHandler(store, &cfg)
-	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SECRET_KEY, r)
+	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
 
 	if cfg.Env != "PROD" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
-	r.Run(cfg.HTTPAddr)
+	r.Run(cfg.ServiceConfig.GatewayAddr)
 }

@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 
 	uploadsHandler := uploads.NewUploadsHandler(nil, mockStore)
 
-	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
+	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
 	os.Exit(m.Run())
 }
@@ -64,7 +64,7 @@ func TestCreateUploadSession_AlreadyExists(t *testing.T) {
 		bytes.NewReader(body),
 		[]string{"Content-Type: application/json"},
 		true,
-		cfg.JWTConfig.SECRET_KEY,
+		cfg.JWTConfig.SecretKey,
 		"test@gmail.com",
 	)
 
