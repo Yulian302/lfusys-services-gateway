@@ -19,13 +19,24 @@ func JWTMiddleware(secretKey string) gin.HandlerFunc {
 		parsedToken, err := jwt.ParseWithClaims(token, &jwttypes.JWTClaims{}, func(t *jwt.Token) (any, error) {
 			return []byte(secretKey), nil
 		})
-		if err != nil {
-			errors.Unauthorized(ctx, "invalid token")
+		if err != nil || !parsedToken.Valid {
+			refresh, _ := ctx.Cookie("refresh_token")
+			if refresh != "" {
+				errors.Unauthorized(ctx, "token_expired")
+			} else {
+				errors.Unauthorized(ctx, "invalid_token")
+			}
 			ctx.Abort()
 			return
 		}
 
 		claims := parsedToken.Claims.(*jwttypes.JWTClaims)
+		if claims.Type != "access" {
+			errors.Unauthorized(ctx, "invalid token type")
+			ctx.Abort()
+			return
+		}
+
 		ctx.Set("email", claims.Subject)
 		ctx.Next()
 	}

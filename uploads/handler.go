@@ -6,18 +6,15 @@ import (
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	"github.com/Yulian302/lfusys-services-gateway/store"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gin-gonic/gin"
 )
 
 type UploadsHandler struct {
 	clientStub pb.UploaderClient
-	store      *store.DynamoDbStore
+	store      store.UploadsStore
 }
 
-func NewUploadsHandler(cb pb.UploaderClient, store *store.DynamoDbStore) *UploadsHandler {
+func NewUploadsHandler(cb pb.UploaderClient, store store.UploadsStore) *UploadsHandler {
 	return &UploadsHandler{
 		clientStub: cb,
 		store:      store,
@@ -62,27 +59,14 @@ func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
 		errors.BadRequestError(ctx, "file size exceeds 10GB limit")
 		return
 	}
-	out, err := h.store.Client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              &h.store.UploadsTableName,
-		IndexName:              aws.String("user_email-index"),
-		KeyConditionExpression: aws.String("user_email = :email"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":email": &types.AttributeValueMemberS{Value: email},
-		},
-	})
+	exists, err := h.store.FindExisting(ctx, email)
 	if err != nil {
 		errors.InternalServerError(ctx, "failed to check existing session")
 		return
 	}
-	if len(out.Items) > 0 {
-		for _, item := range out.Items {
-			if status, exists := item["status"]; exists {
-				if statusStr := status.(*types.AttributeValueMemberS).Value; statusStr == "pending" || statusStr == "in_progress" {
-					errors.JSONError(ctx, http.StatusConflict, "active upload session already exists")
-					return
-				}
-			}
-		}
+	if exists {
+		errors.JSONError(ctx, http.StatusConflict, "active upload session already exists")
+		return
 	}
 
 	res, err := h.clientStub.StartUpload(ctx, &pb.UploadRequest{

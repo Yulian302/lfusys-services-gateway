@@ -96,7 +96,7 @@ func main() {
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SECRET_KEY, r)
 
 	authHandler := auth.NewAuthHandler(store, &cfg)
-	routers.RegisterAuthRoutes(authHandler, r)
+	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SECRET_KEY, r)
 
 	if cfg.Env != "PROD" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
