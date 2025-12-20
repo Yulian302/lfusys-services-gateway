@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	r = gin.Default()
 
 	authHandler := auth.NewAuthHandler(mockStore, &cfg)
-	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SECRET_KEY, r)
+	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
 
 	os.Exit(m.Run())
 }
