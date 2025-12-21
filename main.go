@@ -52,7 +52,8 @@ func main() {
 		log.Fatalf("failed to load aws config: %v", err)
 	}
 	client := dynamodb.NewFromConfig(awsCfg)
-	store := store.NewStore(client, cfg.DynamoDBConfig.UsersTableName, cfg.DynamoDBConfig.UploadsTableName)
+	userStore := store.NewUserStore(client, cfg.DynamoDBConfig.UsersTableName)
+	uploadsStore := store.NewUploadsStore(client, cfg.DynamoDBConfig.UploadsTableName)
 
 	r := gin.Default()
 
@@ -91,10 +92,10 @@ func main() {
 	defer conn.Close()
 
 	clientStub := pb.NewUploaderClient(conn)
-	uploadsHandler := uploads.NewUploadsHandler(clientStub, store)
+	uploadsHandler := uploads.NewUploadsHandler(clientStub, uploadsStore)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
-	authHandler := auth.NewAuthHandler(store, &cfg)
+	authHandler := auth.NewAuthHandler(userStore, &cfg)
 	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
 
 	if cfg.Env != "PROD" {
