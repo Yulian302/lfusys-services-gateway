@@ -24,6 +24,9 @@ type LoginResponse struct {
 
 type AuthService interface {
 	Login(ctx context.Context, email string, password string) (*LoginResponse, error)
+	Register(ctx context.Context, req types.RegisterUser) error
+	GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*jwttypes.TokenPair, error)
 }
 
 type AuthServiceImpl struct {
