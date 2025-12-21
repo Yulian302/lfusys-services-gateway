@@ -21,6 +21,7 @@ import (
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
+	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/Yulian302/lfusys-services-gateway/uploads"
 	_ "github.com/joho/godotenv/autoload"
@@ -92,10 +93,12 @@ func main() {
 	defer conn.Close()
 
 	clientStub := pb.NewUploaderClient(conn)
-	uploadsHandler := uploads.NewUploadsHandler(clientStub, uploadsStore)
+	uploadsService := services.NewUploadsService(uploadsStore, clientStub)
+	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
-	authHandler := auth.NewAuthHandler(userStore, &cfg)
+	authService := services.NewAuthServiceImpl(userStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	authHandler := auth.NewAuthHandler(authService)
 	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
 
 	if cfg.Env != "PROD" {
