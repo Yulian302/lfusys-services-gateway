@@ -13,7 +13,7 @@ import (
 )
 
 type AuthHandler struct {
-	authService *services.AuthServiceImpl
+	authService services.AuthService
 }
 
 func NewAuthHandler(authService *services.AuthServiceImpl) *AuthHandler {
