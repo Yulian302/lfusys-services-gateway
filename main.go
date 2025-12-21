@@ -21,6 +21,7 @@ import (
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
+	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/Yulian302/lfusys-services-gateway/uploads"
 	_ "github.com/joho/godotenv/autoload"
@@ -52,7 +53,8 @@ func main() {
 		log.Fatalf("failed to load aws config: %v", err)
 	}
 	client := dynamodb.NewFromConfig(awsCfg)
-	store := store.NewStore(client, cfg.DynamoDBConfig.UsersTableName, cfg.DynamoDBConfig.UploadsTableName)
+	userStore := store.NewUserStore(client, cfg.DynamoDBConfig.UsersTableName)
+	uploadsStore := store.NewUploadsStore(client, cfg.DynamoDBConfig.UploadsTableName)
 
 	r := gin.Default()
 
@@ -91,10 +93,12 @@ func main() {
 	defer conn.Close()
 
 	clientStub := pb.NewUploaderClient(conn)
-	uploadsHandler := uploads.NewUploadsHandler(clientStub, store)
+	uploadsService := services.NewUploadsService(uploadsStore, clientStub)
+	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
-	authHandler := auth.NewAuthHandler(store, &cfg)
+	authService := services.NewAuthServiceImpl(userStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	authHandler := auth.NewAuthHandler(authService)
 	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
 
 	if cfg.Env != "PROD" {

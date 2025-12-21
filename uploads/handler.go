@@ -1,34 +1,27 @@
 package uploads
 
 import (
+	error "errors"
 	"net/http"
 
-	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/errors"
-	"github.com/Yulian302/lfusys-services-gateway/store"
+	"github.com/Yulian302/lfusys-services-gateway/services"
+	uploadstypes "github.com/Yulian302/lfusys-services-gateway/uploads/types"
 	"github.com/gin-gonic/gin"
 )
 
 type UploadsHandler struct {
-	clientStub pb.UploaderClient
-	store      store.UploadsStore
+	uploadsService services.UploadsService
 }
 
-func NewUploadsHandler(cb pb.UploaderClient, store store.UploadsStore) *UploadsHandler {
+func NewUploadsHandler(uploadsService services.UploadsService) *UploadsHandler {
 	return &UploadsHandler{
-		clientStub: cb,
-		store:      store,
+		uploadsService: uploadsService,
 	}
 }
 
 type UploadRequest struct {
 	FileSize uint64 `json:"file_size" binding:"required"`
-}
-
-type UploadResponse struct {
-	TotalChunks uint32   `json:"total_chunks"`
-	UploadUrls  []string `json:"upload_urls"`
-	UploadId    string   `json:"upload_id"`
 }
 
 // StartUpload godoc
@@ -46,40 +39,33 @@ type UploadResponse struct {
 func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
 	email := ctx.GetString("email")
 	if email == "" {
-		errors.Unauthorized(ctx, "user not authenticated")
+		errors.UnauthorizedResponse(ctx, "user not authenticated")
 		return
 	}
+
 	var uploadReq UploadRequest
 	if err := ctx.ShouldBindJSON(&uploadReq); err != nil {
-		errors.BadRequestError(ctx, err.Error())
+		errors.BadRequestResponse(ctx, err.Error())
 		return
 	}
 
-	if uploadReq.FileSize > 10*1024*1024*1024 {
-		errors.BadRequestError(ctx, "file size exceeds 10GB limit")
-		return
-	}
-	exists, err := h.store.FindExisting(ctx, email)
+	uploadResp, err := h.uploadsService.StartUpload(ctx, email, int64(uploadReq.FileSize))
 	if err != nil {
-		errors.InternalServerError(ctx, "failed to check existing session")
-		return
-	}
-	if exists {
-		errors.JSONError(ctx, http.StatusConflict, "active upload session already exists")
+		if error.Is(err, errors.ErrFileSizeExceeded) || error.Is(err, errors.ErrFileSizeInvalid) {
+			errors.BadRequestResponse(ctx, "file cannot be larger than 10GB")
+		} else if error.Is(err, errors.ErrSessionConflict) {
+			errors.ConflictResponse(ctx, "upload session already exists")
+		} else if error.Is(err, errors.ErrServiceUnavailable) {
+			errors.ServiceUnavailableResponse(ctx, "upload service unavailable")
+		} else {
+			errors.InternalServerErrorResponse(ctx, err.Error())
+		}
 		return
 	}
 
-	res, err := h.clientStub.StartUpload(ctx, &pb.UploadRequest{
-		UserEmail: email,
-		FileSize:  uint64(uploadReq.FileSize),
-	})
-	if err != nil {
-		errors.InternalServerError(ctx, "could not receive response from server")
-		return
-	}
-	ctx.JSON(http.StatusOK, UploadResponse{
-		TotalChunks: res.TotalChunks,
-		UploadUrls:  res.UploadUrls,
-		UploadId:    res.UploadId,
+	ctx.JSON(http.StatusOK, uploadstypes.UploadResponse{
+		TotalChunks: uploadResp.TotalChunks,
+		UploadUrls:  uploadResp.UploadUrls,
+		UploadId:    uploadResp.UploadId,
 	})
 }

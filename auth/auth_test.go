@@ -15,6 +15,7 @@ import (
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	authtypes "github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
+	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -35,7 +36,8 @@ func TestMain(m *testing.M) {
 
 	r = gin.Default()
 
-	authHandler := auth.NewAuthHandler(mockStore, &cfg)
+	authService := services.NewAuthServiceImpl(mockStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	authHandler := auth.NewAuthHandler(authService)
 	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
 
 	os.Exit(m.Run())
