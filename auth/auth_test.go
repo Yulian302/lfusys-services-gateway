@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 func TestLogin_Success(t *testing.T) {
 	mockStore.ResetMock()
 
-	hashed, salt := crypt.HashPasswordWithSalt("password123")
+	hashed, salt := crypt.HashSHA256WithSalt("password123")
 
 	mockStore.On(
 		"GetByEmail",
