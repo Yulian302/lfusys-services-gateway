@@ -110,7 +110,7 @@ func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) 
 	var user types.User
 	user.Email = req.Email
 	user.Name = req.Name
-	user.Password, user.Salt = crypt.HashPasswordWithSalt(req.Password)
+	user.Password, user.Salt = crypt.HashSHA256WithSalt(req.Password)
 	uuidVal := uuid.New()
 	user.ID = uuidVal.String()
 
