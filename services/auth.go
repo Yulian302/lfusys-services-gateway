@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
+	cerr "errors"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/Yulian302/lfusys-services-commons/crypt"
@@ -87,11 +87,11 @@ func (s *AuthServiceImpl) GenerateTokenPair(user *types.User, accessSecret, refr
 func (s *AuthServiceImpl) Login(ctx context.Context, email string, password string) (*LoginResponse, error) {
 	user, err := s.userStore.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrUserNotFound, err)
+		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidCredentials, err)
 	}
 
 	if !crypt.VerifyPasswordWithSalt(password, user.Password, user.Salt) {
-		return nil, fmt.Errorf("%w: %w", errors.ErrUserNotFound, err)
+		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidCredentials, err)
 	}
 
 	tokenPair, err := s.GenerateTokenPair(user, s.JwtAccessSecret, s.JwtRefreshSecret)
@@ -116,10 +116,11 @@ func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) 
 
 	err := s.userStore.Create(ctx, user)
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
+		if cerr.Is(err, errors.ErrUserAlreadyExists) {
 			return fmt.Errorf("%w: %w", errors.ErrUserAlreadyExists, err)
+		} else {
+			return fmt.Errorf("%w: %w", errors.ErrInternalServer, err)
 		}
-		return fmt.Errorf("%w: %w", errors.ErrInternalServer, err)
 	}
 
 	return nil
