@@ -54,8 +54,16 @@ func (s *DynamoDbUserStore) Create(ctx context.Context, user types.User) error {
 	}
 
 	_, err = s.Client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(s.TableName),
-		Item:      item,
+		TableName:           aws.String(s.TableName),
+		Item:                item,
+		ConditionExpression: aws.String("attribute_not_exists(email)"),
 	})
-	return err
+	if err != nil {
+		var ccf *dynamoTypes.ConditionalCheckFailedException
+		if errors.As(err, &ccf) {
+			return errors.New("user already exists")
+		}
+		return err
+	}
+	return nil
 }
