@@ -76,7 +76,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 
 	loginResp, err := h.authService.Login(ctx, loginUser.Email, loginUser.Password)
 	if err != nil {
-		if error.Is(err, errors.ErrUserNotFound) {
+		if error.Is(err, errors.ErrInvalidCredentials) {
 			errors.UnauthorizedResponse(ctx, err.Error())
 		} else {
 			errors.InternalServerErrorResponse(ctx, err.Error())

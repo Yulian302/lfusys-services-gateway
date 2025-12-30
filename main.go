@@ -17,9 +17,11 @@ import (
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-commons/logger"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
+	"github.com/Yulian302/lfusys-services-gateway/logging"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/store"
@@ -56,7 +58,7 @@ func main() {
 	userStore := store.NewUserStore(client, cfg.DynamoDBConfig.UsersTableName)
 	uploadsStore := store.NewUploadsStore(client, cfg.DynamoDBConfig.UploadsTableName)
 
-	r := gin.Default()
+	r := gin.New()
 
 	r.Use(cors.New(
 		cors.Config{
@@ -66,6 +68,10 @@ func main() {
 			AllowCredentials: true,
 		},
 	))
+
+	// logging reqs/resp
+	baseLogger := logger.CreateLogger(cfg.Env)
+	r.Use(logging.LoggerMiddleware(baseLogger))
 
 	// tracing
 	if cfg.Tracing {
