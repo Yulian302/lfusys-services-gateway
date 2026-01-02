@@ -14,6 +14,7 @@ import (
 
 type UploadsService interface {
 	StartUpload(ctx context.Context, email string, fileSize int64) (*uploadstypes.UploadResponse, error)
+	GetUploadStatus(ctx context.Context, uploadID string) (*uploadstypes.UploadStatusResponse, error)
 }
 
 type UploadsServiceImpl struct {
@@ -66,5 +67,25 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 		TotalChunks: res.TotalChunks,
 		UploadUrls:  res.UploadUrls,
 		UploadId:    res.UploadId,
+	}, nil
+}
+
+func (s *UploadsServiceImpl) GetUploadStatus(ctx context.Context, uploadID string) (*uploadstypes.UploadStatusResponse, error) {
+	uploadStatusOut, err := s.clientStub.GetUploadStatus(ctx, &pb.UploadID{
+		UploadId: uploadID,
+	})
+	if err != nil {
+		if status.Code(err) == codes.ResourceExhausted {
+			return nil, fmt.Errorf("%w", errors.ErrFileSizeExceeded)
+		}
+		if status.Code(err) == codes.Unavailable {
+			return nil, fmt.Errorf("%w", errors.ErrServiceUnavailable)
+		}
+		return nil, fmt.Errorf("could not get upload status: %w", err)
+	}
+	return &uploadstypes.UploadStatusResponse{
+		Status:   uploadStatusOut.Status,
+		Progress: uploadStatusOut.Progress,
+		Message:  uploadStatusOut.Message,
 	}, nil
 }

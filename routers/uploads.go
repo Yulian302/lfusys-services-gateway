@@ -11,4 +11,5 @@ func RegisterUploadsRoutes(h *uploads.UploadsHandler, jwtSecret string, route *g
 
 	uploads.Use(auth.JWTMiddleware(jwtSecret))
 	uploads.POST("/start", h.StartUpload)
+	uploads.GET("/:uploadId/status", h.GetUploadStatus)
 }

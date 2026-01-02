@@ -69,3 +69,27 @@ func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
 		UploadId:    uploadResp.UploadId,
 	})
 }
+
+func (h *UploadsHandler) GetUploadStatus(c *gin.Context) {
+	uploadId := c.Param("uploadId")
+	if uploadId == "" {
+		errors.BadRequestResponse(c, "upload id is required")
+		return
+	}
+
+	resp, err := h.uploadsService.GetUploadStatus(c, uploadId)
+	if err != nil {
+		if error.Is(err, errors.ErrGrpcFailed) {
+			errors.InternalServerErrorResponse(c, "grpc failed")
+		} else if error.Is(err, errors.ErrServiceUnavailable) {
+			errors.ServiceUnavailableResponse(c, "upload service unavailable")
+		} else if error.Is(err, errors.ErrSessionNotFound) {
+			errors.ForbiddenResponse(c, "upload session not found")
+		} else {
+			errors.InternalServerErrorResponse(c, err.Error())
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
