@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	apperror "github.com/Yulian302/lfusys-services-commons/errors"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -61,7 +62,7 @@ func (s *DynamoDbUserStore) Create(ctx context.Context, user types.User) error {
 	if err != nil {
 		var ccf *dynamoTypes.ConditionalCheckFailedException
 		if errors.As(err, &ccf) {
-			return errors.New("user already exists")
+			return apperror.ErrUserAlreadyExists
 		}
 		return err
 	}
