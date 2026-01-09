@@ -21,6 +21,7 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
+	"github.com/Yulian302/lfusys-services-gateway/files"
 	"github.com/Yulian302/lfusys-services-gateway/logging"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/services"
@@ -106,6 +107,10 @@ func main() {
 	authService := services.NewAuthServiceImpl(userStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
 	authHandler := auth.NewAuthHandler(authService)
 	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
+
+	fileService := services.NewFileServiceImpl(clientStub)
+	fileHandler := files.NewFileHandler(fileService)
+	routers.RegisterFileRoutes(fileHandler, cfg.JWTConfig.SecretKey, r)
 
 	if cfg.Env != "PROD" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
