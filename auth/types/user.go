@@ -4,6 +4,9 @@ type User struct {
 	ID   string `json:"id" dynamodbav:"id"`
 	Salt string `json:"-" dynamodbav:"salt"`
 	RegisterUser
+	OAuthProvider string
+	OAuthID       string
+	Verified      bool
 }
 
 type RegisterUser struct {
@@ -21,4 +24,13 @@ type MeResponse struct {
 	Email         string `json:"email"`
 	Name          string `json:"username"`
 	Authenticated bool   `json:"authenticated"`
+}
+
+type OAuthUser struct {
+	Name       string
+	Email      string
+	Provider   string
+	ProviderID string
+	AvatarURL  string
+	Username   string
 }

@@ -22,22 +22,36 @@ type LoginResponse struct {
 	User         *types.User
 }
 
-type AuthService interface {
+type JwtAuth interface {
 	Login(ctx context.Context, email string, password string) (*LoginResponse, error)
 	Register(ctx context.Context, req types.RegisterUser) error
 	GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*jwttypes.TokenPair, error)
 }
 
+type OAuth interface {
+	LoginOAuth(ctx context.Context, email string) (*LoginResponse, error)
+	RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error)
+	SaveState(ctx context.Context, state string) error
+	ValidateState(ctx context.Context, callbackState string) (bool, error)
+}
+
+type AuthService interface {
+	JwtAuth
+	OAuth
+}
+
 type AuthServiceImpl struct {
 	userStore        store.UserStore
+	sessionStore     store.SessionStore
 	JwtAccessSecret  string
 	JwtRefreshSecret string
 }
 
-func NewAuthServiceImpl(userStore store.UserStore, jwtAccessSecret, jwtRefreshSecret string) *AuthServiceImpl {
+func NewAuthServiceImpl(userStore store.UserStore, sessionStore store.SessionStore, jwtAccessSecret, jwtRefreshSecret string) *AuthServiceImpl {
 	return &AuthServiceImpl{
 		userStore:        userStore,
+		sessionStore:     sessionStore,
 		JwtAccessSecret:  jwtAccessSecret,
 		JwtRefreshSecret: jwtRefreshSecret,
 	}
@@ -91,7 +105,7 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email string, password stri
 	}
 
 	if !crypt.VerifyPasswordWithSalt(password, user.Password, user.Salt) {
-		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidCredentials, err)
+		return nil, errors.ErrInvalidCredentials
 	}
 
 	tokenPair, err := s.GenerateTokenPair(user, s.JwtAccessSecret, s.JwtRefreshSecret)
@@ -106,13 +120,26 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email string, password stri
 	}, nil
 }
 
+func (s *AuthServiceImpl) LoginOAuth(ctx context.Context, email string) (*LoginResponse, error) {
+	user, err := s.userStore.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenPair, err := s.GenerateTokenPair(user, s.JwtAccessSecret, s.JwtRefreshSecret)
+	if err != nil {
+		return nil, fmt.Errorf("generating token pair: %w", err)
+	}
+
+	return &LoginResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		User:         user,
+	}, nil
+}
+
 func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) error {
-	var user types.User
-	user.Email = req.Email
-	user.Name = req.Name
-	user.Password, user.Salt = crypt.HashSHA256WithSalt(req.Password)
-	uuidVal := uuid.New()
-	user.ID = uuidVal.String()
+	user := newUserFromRegistration(req)
 
 	err := s.userStore.Create(ctx, user)
 	if err != nil {
@@ -124,6 +151,20 @@ func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) 
 	}
 
 	return nil
+}
+
+func (s *AuthServiceImpl) RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error) {
+	user := newUserFromOAuth(userData)
+
+	err := s.userStore.Create(ctx, user)
+	if err != nil {
+		if cerr.Is(err, errors.ErrUserAlreadyExists) {
+			return types.User{}, errors.ErrUserAlreadyExists
+		}
+		return types.User{}, fmt.Errorf("db create user: %w", err)
+	}
+
+	return user, nil
 }
 
 func (s *AuthServiceImpl) GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error) {
@@ -185,4 +226,46 @@ func (s *AuthServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidToken, err)
 	}
 	return pair, nil
+}
+
+func (s *AuthServiceImpl) SaveState(ctx context.Context, state string) error {
+	err := s.sessionStore.Create(ctx, state, "")
+	return err
+}
+
+func (s *AuthServiceImpl) ValidateState(ctx context.Context, callbackState string) (bool, error) {
+	valid, err := s.sessionStore.Validate(ctx, callbackState)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
+	return true, nil
+}
+
+func newUserFromRegistration(req types.RegisterUser) types.User {
+	hashedPassword, salt := crypt.HashSHA256WithSalt(req.Password)
+	return types.User{
+		ID: uuid.NewString(),
+		RegisterUser: types.RegisterUser{
+			Name:     req.Name,
+			Email:    req.Email,
+			Password: hashedPassword,
+		},
+		Salt: salt,
+	}
+}
+
+func newUserFromOAuth(ouser types.OAuthUser) types.User {
+	return types.User{
+		ID: uuid.NewString(),
+		RegisterUser: types.RegisterUser{
+			Name:  ouser.Name,
+			Email: ouser.Email,
+		},
+		OAuthProvider: ouser.Provider,
+		OAuthID:       ouser.ProviderID,
+		Verified:      true,
+	}
 }

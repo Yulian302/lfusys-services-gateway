@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -19,7 +20,7 @@ import (
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/logger"
 	"github.com/Yulian302/lfusys-services-commons/responses"
-	"github.com/Yulian302/lfusys-services-gateway/auth"
+	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/files"
 	"github.com/Yulian302/lfusys-services-gateway/logging"
@@ -47,7 +48,15 @@ func main() {
 	cfg := common.LoadConfig()
 
 	if err := cfg.AWSConfig.ValidateSecrets(); err != nil {
-		log.Fatal("aws security credentials were not found")
+		log.Fatalf("aws security credentials were not configured: %s", err.Error())
+	}
+
+	if err := cfg.GithubConfig.ValidateSecrets(); err != nil {
+		log.Fatalf("github oath2 was not configured: %s", err.Error())
+	}
+
+	if err := cfg.RedisConfig.ValidateSecrets(); err != nil {
+		log.Fatalf("redis was not configured: %s", err.Error())
 	}
 
 	// create db client
@@ -56,7 +65,13 @@ func main() {
 		log.Fatalf("failed to load aws config: %v", err)
 	}
 	client := dynamodb.NewFromConfig(awsCfg)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisConfig.HOST,
+		Password: "",
+		DB:       0,
+	})
 	userStore := store.NewUserStore(client, cfg.DynamoDBConfig.UsersTableName)
+	sessionStore := store.NewRedisStoreImpl(redisClient)
 	uploadsStore := store.NewUploadsStore(client, cfg.DynamoDBConfig.UploadsTableName)
 
 	r := gin.New()
@@ -104,9 +119,10 @@ func main() {
 	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
-	authService := services.NewAuthServiceImpl(userStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
-	authHandler := auth.NewAuthHandler(authService)
-	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
+	authService := services.NewAuthServiceImpl(userStore, sessionStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	jwtHandler := handlers.NewAuthHandler(authService)
+	ghHandler := handlers.NewGithubHandler(cfg.GithubConfig, authService, userStore)
+	routers.RegisterAuthRoutes(jwtHandler, ghHandler, cfg.JWTConfig.SecretKey, r)
 
 	fileService := services.NewFileServiceImpl(clientStub)
 	fileHandler := files.NewFileHandler(fileService)
