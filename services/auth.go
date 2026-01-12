@@ -24,20 +24,26 @@ type LoginResponse struct {
 
 type AuthService interface {
 	Login(ctx context.Context, email string, password string) (*LoginResponse, error)
+	LoginOAuth(ctx context.Context, email string) (*LoginResponse, error)
 	Register(ctx context.Context, req types.RegisterUser) error
+	RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error)
 	GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*jwttypes.TokenPair, error)
+	SaveState(ctx context.Context, state string) error
+	ValidateState(ctx context.Context, callbackState string) (bool, error)
 }
 
 type AuthServiceImpl struct {
 	userStore        store.UserStore
+	sessionStore     store.SessionStore
 	JwtAccessSecret  string
 	JwtRefreshSecret string
 }
 
-func NewAuthServiceImpl(userStore store.UserStore, jwtAccessSecret, jwtRefreshSecret string) *AuthServiceImpl {
+func NewAuthServiceImpl(userStore store.UserStore, sessionStore store.SessionStore, jwtAccessSecret, jwtRefreshSecret string) *AuthServiceImpl {
 	return &AuthServiceImpl{
 		userStore:        userStore,
+		sessionStore:     sessionStore,
 		JwtAccessSecret:  jwtAccessSecret,
 		JwtRefreshSecret: jwtRefreshSecret,
 	}
@@ -106,6 +112,24 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email string, password stri
 	}, nil
 }
 
+func (s *AuthServiceImpl) LoginOAuth(ctx context.Context, email string) (*LoginResponse, error) {
+	user, err := s.userStore.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenPair, err := s.GenerateTokenPair(user, s.JwtAccessSecret, s.JwtRefreshSecret)
+	if err != nil {
+		return nil, fmt.Errorf("generating token pair: %w", err)
+	}
+
+	return &LoginResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		User:         user,
+	}, nil
+}
+
 func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) error {
 	var user types.User
 	user.Email = req.Email
@@ -124,6 +148,29 @@ func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) 
 	}
 
 	return nil
+}
+
+func (s *AuthServiceImpl) RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error) {
+	user := types.User{
+		ID: uuid.NewString(),
+		RegisterUser: types.RegisterUser{
+			Email: userData.Email,
+			Name:  userData.Name,
+		},
+		OAuthProvider: userData.Provider,
+		OAuthID:       userData.ProviderID,
+		Verified:      true,
+	}
+
+	err := s.userStore.Create(ctx, user)
+	if err != nil {
+		if cerr.Is(err, errors.ErrUserAlreadyExists) {
+			return types.User{}, errors.ErrUserAlreadyExists
+		}
+		return types.User{}, fmt.Errorf("db create user: %w", err)
+	}
+
+	return user, nil
 }
 
 func (s *AuthServiceImpl) GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error) {
@@ -185,4 +232,20 @@ func (s *AuthServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidToken, err)
 	}
 	return pair, nil
+}
+
+func (s *AuthServiceImpl) SaveState(ctx context.Context, state string) error {
+	err := s.sessionStore.Create(ctx, "oauth:state:", state, "1")
+	return err
+}
+
+func (s *AuthServiceImpl) ValidateState(ctx context.Context, callbackState string) (bool, error) {
+	valid, err := s.sessionStore.Validate(ctx, "oauth:state:", callbackState)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
+	return true, nil
 }

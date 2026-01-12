@@ -11,7 +11,7 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/crypt"
 	"github.com/Yulian302/lfusys-services-commons/test"
 	"github.com/Yulian302/lfusys-services-commons/test/mocks"
-	"github.com/Yulian302/lfusys-services-gateway/auth"
+	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	authtypes "github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
@@ -36,9 +36,9 @@ func TestMain(m *testing.M) {
 
 	r = gin.Default()
 
-	authService := services.NewAuthServiceImpl(mockStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
-	authHandler := auth.NewAuthHandler(authService)
-	routers.RegisterAuthRoutes(authHandler, cfg.JWTConfig.SecretKey, r)
+	authService := services.NewAuthServiceImpl(mockStore, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	authHandler := handlers.NewAuthHandler(authService)
+	routers.RegisterAuthRoutes(authHandler, nil, cfg.JWTConfig.SecretKey, r)
 
 	os.Exit(m.Run())
 }

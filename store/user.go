@@ -37,7 +37,7 @@ func (s *DynamoDbUserStore) GetByEmail(ctx context.Context, email string) (*type
 		},
 	})
 	if err != nil || res.Item == nil {
-		return nil, errors.New("user not found")
+		return nil, apperror.ErrUserNotFound
 	}
 
 	var user types.User
