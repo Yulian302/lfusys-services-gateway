@@ -29,6 +29,10 @@ type GithubHandler struct {
 	userStore   store.UserStore
 }
 
+const (
+	prefix = "oauth:state:"
+)
+
 func NewGithubHandler(ghCfg *github.GithubConfig, authSvc services.AuthService, userStore store.UserStore) *GithubHandler {
 	return &GithubHandler{
 		ghCfg:       ghCfg,
@@ -44,7 +48,7 @@ func (h *GithubHandler) NewState(c *gin.Context) {
 		return
 	}
 
-	err = h.authService.SaveState(c, state)
+	err = h.authService.SaveState(c, prefix+state)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "failed to store state")
 		return
@@ -68,7 +72,7 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	isValid, err := h.authService.ValidateState(c, state)
+	isValid, err := h.authService.ValidateState(c, prefix+state)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "could not validate state")
 		return

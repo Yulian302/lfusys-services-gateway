@@ -22,15 +22,23 @@ type LoginResponse struct {
 	User         *types.User
 }
 
-type AuthService interface {
+type JwtAuth interface {
 	Login(ctx context.Context, email string, password string) (*LoginResponse, error)
-	LoginOAuth(ctx context.Context, email string) (*LoginResponse, error)
 	Register(ctx context.Context, req types.RegisterUser) error
-	RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error)
 	GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*jwttypes.TokenPair, error)
+}
+
+type OAuth interface {
+	LoginOAuth(ctx context.Context, email string) (*LoginResponse, error)
+	RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error)
 	SaveState(ctx context.Context, state string) error
 	ValidateState(ctx context.Context, callbackState string) (bool, error)
+}
+
+type AuthService interface {
+	JwtAuth
+	OAuth
 }
 
 type AuthServiceImpl struct {
@@ -97,7 +105,7 @@ func (s *AuthServiceImpl) Login(ctx context.Context, email string, password stri
 	}
 
 	if !crypt.VerifyPasswordWithSalt(password, user.Password, user.Salt) {
-		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidCredentials, err)
+		return nil, errors.ErrInvalidCredentials
 	}
 
 	tokenPair, err := s.GenerateTokenPair(user, s.JwtAccessSecret, s.JwtRefreshSecret)
@@ -131,12 +139,7 @@ func (s *AuthServiceImpl) LoginOAuth(ctx context.Context, email string) (*LoginR
 }
 
 func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) error {
-	var user types.User
-	user.Email = req.Email
-	user.Name = req.Name
-	user.Password, user.Salt = crypt.HashSHA256WithSalt(req.Password)
-	uuidVal := uuid.New()
-	user.ID = uuidVal.String()
+	user := newUserFromRegistration(req)
 
 	err := s.userStore.Create(ctx, user)
 	if err != nil {
@@ -151,16 +154,7 @@ func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) 
 }
 
 func (s *AuthServiceImpl) RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error) {
-	user := types.User{
-		ID: uuid.NewString(),
-		RegisterUser: types.RegisterUser{
-			Email: userData.Email,
-			Name:  userData.Name,
-		},
-		OAuthProvider: userData.Provider,
-		OAuthID:       userData.ProviderID,
-		Verified:      true,
-	}
+	user := newUserFromOAuth(userData)
 
 	err := s.userStore.Create(ctx, user)
 	if err != nil {
@@ -235,12 +229,12 @@ func (s *AuthServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 }
 
 func (s *AuthServiceImpl) SaveState(ctx context.Context, state string) error {
-	err := s.sessionStore.Create(ctx, "oauth:state:", state, "1")
+	err := s.sessionStore.Create(ctx, state, "")
 	return err
 }
 
 func (s *AuthServiceImpl) ValidateState(ctx context.Context, callbackState string) (bool, error) {
-	valid, err := s.sessionStore.Validate(ctx, "oauth:state:", callbackState)
+	valid, err := s.sessionStore.Validate(ctx, callbackState)
 	if err != nil {
 		return false, err
 	}
@@ -248,4 +242,30 @@ func (s *AuthServiceImpl) ValidateState(ctx context.Context, callbackState strin
 		return false, nil
 	}
 	return true, nil
+}
+
+func newUserFromRegistration(req types.RegisterUser) types.User {
+	hashedPassword, salt := crypt.HashSHA256WithSalt(req.Password)
+	return types.User{
+		ID: uuid.NewString(),
+		RegisterUser: types.RegisterUser{
+			Name:     req.Name,
+			Email:    req.Email,
+			Password: hashedPassword,
+		},
+		Salt: salt,
+	}
+}
+
+func newUserFromOAuth(ouser types.OAuthUser) types.User {
+	return types.User{
+		ID: uuid.NewString(),
+		RegisterUser: types.RegisterUser{
+			Name:  ouser.Name,
+			Email: ouser.Email,
+		},
+		OAuthProvider: ouser.Provider,
+		OAuthID:       ouser.ProviderID,
+		Verified:      true,
+	}
 }
