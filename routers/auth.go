@@ -16,7 +16,7 @@ func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, g
 	auth.POST("/logout", jwt.Logout)
 
 	// oauth2
-	auth.POST("/state", gh.NewState)
+	auth.POST("/state", jwt.NewState)
 	auth.GET("/github/callback", gh.Callback)
 	auth.GET("/google/callback", googleh.Callback)
 }

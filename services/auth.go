@@ -10,6 +10,7 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/crypt"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
+	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/golang-jwt/jwt/v5"
@@ -27,11 +28,12 @@ type JwtAuth interface {
 	Register(ctx context.Context, req types.RegisterUser) error
 	GetCurrentUser(ctx context.Context, accessToken string) (*types.User, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*jwttypes.TokenPair, error)
+	SaveState(ctx context.Context, state string) error
 }
 
 type OAuth interface {
 	LoginOAuth(ctx context.Context, email string) (*LoginResponse, error)
-	RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error)
+	RegisterOAuth(ctx context.Context, userData oauth.OAuthUser) (types.User, error)
 	SaveState(ctx context.Context, state string) error
 	ValidateState(ctx context.Context, callbackState string) (bool, error)
 }
@@ -153,7 +155,7 @@ func (s *AuthServiceImpl) Register(ctx context.Context, req types.RegisterUser) 
 	return nil
 }
 
-func (s *AuthServiceImpl) RegisterOAuth(ctx context.Context, userData types.OAuthUser) (types.User, error) {
+func (s *AuthServiceImpl) RegisterOAuth(ctx context.Context, userData oauth.OAuthUser) (types.User, error) {
 	user := newUserFromOAuth(userData)
 
 	err := s.userStore.Create(ctx, user)
@@ -257,7 +259,7 @@ func newUserFromRegistration(req types.RegisterUser) types.User {
 	}
 }
 
-func newUserFromOAuth(ouser types.OAuthUser) types.User {
+func newUserFromOAuth(ouser oauth.OAuthUser) types.User {
 	return types.User{
 		ID: uuid.NewString(),
 		RegisterUser: types.RegisterUser{

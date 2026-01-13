@@ -25,12 +25,3 @@ type MeResponse struct {
 	Name          string `json:"username"`
 	Authenticated bool   `json:"authenticated"`
 }
-
-type OAuthUser struct {
-	Name       string
-	Email      string
-	Provider   string
-	ProviderID string
-	AvatarURL  string
-	Username   string
-}
