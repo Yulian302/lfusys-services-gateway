@@ -122,7 +122,8 @@ func main() {
 	authService := services.NewAuthServiceImpl(userStore, sessionStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
 	jwtHandler := handlers.NewAuthHandler(authService)
 	ghHandler := handlers.NewGithubHandler(cfg.GithubConfig, authService, userStore)
-	routers.RegisterAuthRoutes(jwtHandler, ghHandler, cfg.JWTConfig.SecretKey, r)
+	googleHandler := handlers.NewGoogleHandler(cfg.GoogleConfig, authService, userStore)
+	routers.RegisterAuthRoutes(jwtHandler, ghHandler, googleHandler, cfg.JWTConfig.SecretKey, r)
 
 	fileService := services.NewFileServiceImpl(clientStub)
 	fileHandler := files.NewFileHandler(fileService)
