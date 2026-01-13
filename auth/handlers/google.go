@@ -6,31 +6,32 @@ import (
 
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
-	"github.com/Yulian302/lfusys-services-commons/oauth/github"
+	"github.com/Yulian302/lfusys-services-commons/oauth/google"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
+	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/gin-gonic/gin"
 )
 
-type GithubHandler struct {
+type GoogleHandler struct {
 	frontendURL   string
 	authSvc       services.AuthService
 	userStore     store.UserStore
-	oAuthProvider oauth.Provider
+	oauthProvider oauth.Provider
 }
 
-func NewGithubHandler(frontendUrl string, ghCfg *github.GithubConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider) *GithubHandler {
-	return &GithubHandler{
-		frontendURL:   frontendUrl,
+func NewGoogleHandler(frontendURL string, ghCfg *google.GoogleConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider) *GoogleHandler {
+	return &GoogleHandler{
+		frontendURL:   frontendURL,
 		authSvc:       authSvc,
 		userStore:     userStore,
-		oAuthProvider: prov,
+		oauthProvider: prov,
 	}
 }
 
-func (h *GithubHandler) Callback(c *gin.Context) {
+func (h *GoogleHandler) Callback(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
 		errors.UnauthorizedResponse(c, "could not receive `code` from authorizing party")
@@ -53,22 +54,31 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	token, err := h.oAuthProvider.ExchangeCode(c, code)
+	token, err := h.oauthProvider.ExchangeCode(c, code)
 	if err != nil {
 		errors.UnauthorizedResponse(c, fmt.Sprint("could not retrieve access token: ", err.Error()))
 		return
 	}
 
-	ghUser, err := h.oAuthProvider.GetOAuthUser(c, token)
+	gUser, err := h.oauthProvider.GetOAuthUser(c, token)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "could not get user data")
 		return
 	}
 
-	user, err := h.userStore.GetByEmail(c, ghUser.Email)
+	oAuthUser := oauth.OAuthUser{
+		Name:       gUser.Name,
+		Email:      gUser.Email,
+		Provider:   types.Providers[types.GithubProvider],
+		ProviderID: gUser.ProviderID,
+		AvatarURL:  gUser.AvatarURL,
+		Username:   gUser.Name,
+	}
+
+	user, err := h.userStore.GetByEmail(c, gUser.Email)
 	if err != nil {
 		if cerror.Is(err, errors.ErrUserNotFound) {
-			newUser, err := h.authSvc.RegisterOAuth(c, ghUser)
+			newUser, err := h.authSvc.RegisterOAuth(c, oAuthUser)
 			if err != nil {
 				errors.InternalServerErrorResponse(c, "failed to create user")
 				return
@@ -105,5 +115,6 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		false,
 		true,
 	)
+
 	responses.Redirect(c, h.frontendURL)
 }

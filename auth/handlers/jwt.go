@@ -4,9 +4,11 @@ import (
 	error "errors"
 	"net/http"
 
+	"github.com/Yulian302/lfusys-services-commons/crypt"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
 	"github.com/Yulian302/lfusys-services-commons/responses"
+	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/gin-gonic/gin"
@@ -135,4 +137,22 @@ func (h *AuthHandler) Logout(ctx *gin.Context) {
 	ctx.SetCookie("jwt", "", -1, jwttypes.CookiePath, "", false, true)
 	ctx.SetCookie("refresh_token", "", -1, jwttypes.CookiePath, "", false, true)
 	responses.JSONSuccess(ctx, "logged out")
+}
+
+func (h *AuthHandler) NewState(c *gin.Context) {
+	state, err := crypt.GenerateState(16)
+	if err != nil {
+		errors.InternalServerErrorResponse(c, "failed to generate state")
+		return
+	}
+
+	err = h.authService.SaveState(c, oauth.OAuthPrefix+state)
+	if err != nil {
+		errors.InternalServerErrorResponse(c, "failed to store state")
+		return
+	}
+
+	responses.JSONData(c, http.StatusOK, gin.H{
+		"state": state,
+	})
 }

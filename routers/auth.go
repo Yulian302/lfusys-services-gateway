@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, jwtSecret string, route *gin.Engine) {
+func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, googleh *handlers.GoogleHandler, jwtSecret string, route *gin.Engine) {
 	auth := route.Group("/auth")
 
 	auth.GET("/me", authmid.JWTMiddleware(jwtSecret), jwt.Me)
@@ -16,6 +16,7 @@ func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, j
 	auth.POST("/logout", jwt.Logout)
 
 	// oauth2
-	auth.POST("/state", gh.NewState)
+	auth.POST("/state", jwt.NewState)
 	auth.GET("/github/callback", gh.Callback)
+	auth.GET("/google/callback", googleh.Callback)
 }

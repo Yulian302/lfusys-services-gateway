@@ -21,6 +21,7 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/logger"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
+	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/files"
 	"github.com/Yulian302/lfusys-services-gateway/logging"
@@ -121,8 +122,11 @@ func main() {
 
 	authService := services.NewAuthServiceImpl(userStore, sessionStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
 	jwtHandler := handlers.NewAuthHandler(authService)
-	ghHandler := handlers.NewGithubHandler(cfg.GithubConfig, authService, userStore)
-	routers.RegisterAuthRoutes(jwtHandler, ghHandler, cfg.JWTConfig.SecretKey, r)
+	ghProvider := oauth.NewGithubProvider(cfg.GithubConfig)
+	ghHandler := handlers.NewGithubHandler(cfg.GithubConfig.FrontendURL, cfg.GithubConfig, authService, userStore, ghProvider)
+	googleProvider := oauth.NewGoogleProvider(cfg.GoogleConfig)
+	googleHandler := handlers.NewGoogleHandler(cfg.GoogleConfig.FrontendURL, cfg.GoogleConfig, authService, userStore, googleProvider)
+	routers.RegisterAuthRoutes(jwtHandler, ghHandler, googleHandler, cfg.JWTConfig.SecretKey, r)
 
 	fileService := services.NewFileServiceImpl(clientStub)
 	fileHandler := files.NewFileHandler(fileService)
