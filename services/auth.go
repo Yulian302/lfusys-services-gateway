@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	cerr "errors"
 	"fmt"
 	"log"
@@ -12,6 +13,7 @@ import (
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
+	"github.com/Yulian302/lfusys-services-gateway/services/caching"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -46,14 +48,16 @@ type AuthService interface {
 type AuthServiceImpl struct {
 	userStore        store.UserStore
 	sessionStore     store.SessionStore
+	cachingSvc       caching.CachingService
 	JwtAccessSecret  string
 	JwtRefreshSecret string
 }
 
-func NewAuthServiceImpl(userStore store.UserStore, sessionStore store.SessionStore, jwtAccessSecret, jwtRefreshSecret string) *AuthServiceImpl {
+func NewAuthServiceImpl(userStore store.UserStore, sessionStore store.SessionStore, cachingSvc caching.CachingService, jwtAccessSecret, jwtRefreshSecret string) *AuthServiceImpl {
 	return &AuthServiceImpl{
 		userStore:        userStore,
 		sessionStore:     sessionStore,
+		cachingSvc:       cachingSvc,
 		JwtAccessSecret:  jwtAccessSecret,
 		JwtRefreshSecret: jwtRefreshSecret,
 	}
@@ -176,9 +180,32 @@ func (s *AuthServiceImpl) GetCurrentUser(ctx context.Context, accessToken string
 		return nil, fmt.Errorf("%w: %w", errors.ErrInvalidToken, err)
 	}
 
+	userKey := fmt.Sprintf("user:%s", claims.Subject)
+	cached, err := s.cachingSvc.Get(ctx, userKey)
+	if err == nil && cached != "" {
+		var cachedUser types.User
+		if err = json.Unmarshal([]byte(cached), &cachedUser); err == nil {
+			return &cachedUser, nil
+		}
+		fmt.Println("could not unmarshal cached user data")
+	}
+
 	user, err := s.userStore.GetByEmail(ctx, claims.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errors.ErrUserNotFound, err)
+	}
+
+	b, err := json.Marshal(&types.PublicUser{
+		ID:    user.ID,
+		Email: user.Email,
+		Name:  user.Name,
+	})
+	if err == nil {
+		if err = s.cachingSvc.Set(ctx, userKey, string(b), 30*time.Minute); err != nil {
+			log.Println("could not save user data in cache:", err)
+		}
+	} else {
+		log.Println("could not save user data in cache:", err)
 	}
 
 	return user, nil
