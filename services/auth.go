@@ -8,12 +8,12 @@ import (
 	"log"
 	"time"
 
+	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-commons/crypt"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
-	"github.com/Yulian302/lfusys-services-gateway/services/caching"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
