@@ -27,6 +27,7 @@ import (
 	"github.com/Yulian302/lfusys-services-gateway/logging"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/services"
+	"github.com/Yulian302/lfusys-services-gateway/services/caching"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/Yulian302/lfusys-services-gateway/uploads"
 	_ "github.com/joho/godotenv/autoload"
@@ -115,12 +116,14 @@ func main() {
 	}
 	defer conn.Close()
 
+	cachingSvc := caching.NewRedisCachingService(redisClient)
+
 	clientStub := pb.NewUploaderClient(conn)
 	uploadsService := services.NewUploadsService(uploadsStore, clientStub)
 	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
 
-	authService := services.NewAuthServiceImpl(userStore, sessionStore, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	authService := services.NewAuthServiceImpl(userStore, sessionStore, cachingSvc, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
 	jwtHandler := handlers.NewAuthHandler(authService)
 	ghProvider := oauth.NewGithubProvider(cfg.GithubConfig)
 	ghHandler := handlers.NewGithubHandler(cfg.GithubConfig.FrontendURL, cfg.GithubConfig, authService, userStore, ghProvider)

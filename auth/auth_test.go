@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 
 	r = gin.Default()
 
-	authService := services.NewAuthServiceImpl(mockStore, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
+	authService := services.NewAuthServiceImpl(mockStore, nil, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
 	authHandler := handlers.NewAuthHandler(authService)
 	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, r)
 

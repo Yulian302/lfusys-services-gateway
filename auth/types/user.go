@@ -25,3 +25,10 @@ type MeResponse struct {
 	Name          string `json:"username"`
 	Authenticated bool   `json:"authenticated"`
 }
+
+// used for caching user info
+type PublicUser struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
