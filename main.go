@@ -18,6 +18,7 @@ import (
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	pb "github.com/Yulian302/lfusys-services-commons/api"
+	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-commons/logger"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
@@ -27,7 +28,6 @@ import (
 	"github.com/Yulian302/lfusys-services-gateway/logging"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/services"
-	"github.com/Yulian302/lfusys-services-gateway/services/caching"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/Yulian302/lfusys-services-gateway/uploads"
 	_ "github.com/joho/godotenv/autoload"
