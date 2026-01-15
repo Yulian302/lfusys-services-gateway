@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -20,12 +21,14 @@ import (
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-commons/logger"
+	"github.com/Yulian302/lfusys-services-commons/ratelimit"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	"github.com/Yulian302/lfusys-services-gateway/files"
 	"github.com/Yulian302/lfusys-services-gateway/logging"
+	"github.com/Yulian302/lfusys-services-gateway/middleware"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/store"
@@ -86,6 +89,9 @@ func main() {
 			AllowCredentials: true,
 		},
 	))
+
+	rateLimiter := ratelimit.NewRedisRateLimiter(redisClient)
+	r.Use(middleware.RateLimiterMiddleware(rateLimiter, 5, time.Minute))
 
 	// logging reqs/resp
 	baseLogger := logger.CreateLogger(cfg.Env)
