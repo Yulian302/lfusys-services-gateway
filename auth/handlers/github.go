@@ -4,9 +4,9 @@ import (
 	cerror "errors"
 	"fmt"
 
+	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
-	"github.com/Yulian302/lfusys-services-commons/oauth/github"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/services"
@@ -21,7 +21,7 @@ type GithubHandler struct {
 	oAuthProvider oauth.Provider
 }
 
-func NewGithubHandler(frontendUrl string, ghCfg *github.GithubConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider) *GithubHandler {
+func NewGithubHandler(frontendUrl string, ghCfg *config.GithubConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider) *GithubHandler {
 	return &GithubHandler{
 		frontendURL:   frontendUrl,
 		authSvc:       authSvc,

@@ -4,9 +4,9 @@ import (
 	cerror "errors"
 	"fmt"
 
+	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	jwttypes "github.com/Yulian302/lfusys-services-commons/jwt"
-	"github.com/Yulian302/lfusys-services-commons/oauth/google"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
@@ -22,7 +22,7 @@ type GoogleHandler struct {
 	oauthProvider oauth.Provider
 }
 
-func NewGoogleHandler(frontendURL string, ghCfg *google.GoogleConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider) *GoogleHandler {
+func NewGoogleHandler(frontendURL string, ghCfg *config.GoogleConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider) *GoogleHandler {
 	return &GoogleHandler{
 		frontendURL:   frontendURL,
 		authSvc:       authSvc,

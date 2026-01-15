@@ -7,17 +7,17 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Yulian302/lfusys-services-commons/oauth/github"
+	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 )
 
 type githubProvider struct {
-	cfg    *github.GithubConfig
+	cfg    *config.GithubConfig
 	client *auth.Client
 }
 
-func NewGithubProvider(cfg *github.GithubConfig) *githubProvider {
+func NewGithubProvider(cfg *config.GithubConfig) *githubProvider {
 	return &githubProvider{
 		cfg:    cfg,
 		client: auth.NewClient(10 * time.Second),

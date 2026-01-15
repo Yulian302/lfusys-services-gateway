@@ -6,17 +6,17 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Yulian302/lfusys-services-commons/oauth/google"
+	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-gateway/auth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 )
 
 type googleProvider struct {
-	cfg    *google.GoogleConfig
+	cfg    *config.GoogleConfig
 	client *auth.Client
 }
 
-func NewGoogleProvider(cfg *google.GoogleConfig) *googleProvider {
+func NewGoogleProvider(cfg *config.GoogleConfig) *googleProvider {
 	return &googleProvider{
 		cfg:    cfg,
 		client: auth.NewClient(10 * time.Second),
