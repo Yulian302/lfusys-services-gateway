@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	common "github.com/Yulian302/lfusys-services-commons"
+	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-commons/test"
 	"github.com/Yulian302/lfusys-services-commons/test/mocks"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	cfg       common.Config
+	cfg       config.Config
 	mockStore *mocks.MockDynamoDbStore
 	r         *gin.Engine
 )
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 
 	r = gin.Default()
 
-	cfg = common.LoadConfig()
+	cfg = config.LoadConfig()
 	mockStore = &mocks.MockDynamoDbStore{}
 
 	uploadsService := services.NewUploadsService(mockStore, nil)

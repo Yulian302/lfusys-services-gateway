@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	common "github.com/Yulian302/lfusys-services-commons"
+	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-commons/crypt"
 	"github.com/Yulian302/lfusys-services-commons/test"
 	"github.com/Yulian302/lfusys-services-commons/test/mocks"
@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	cfg       common.Config
+	cfg       config.Config
 	mockStore *mocks.MockDynamoDbStore
 	r         *gin.Engine
 )
@@ -30,7 +30,7 @@ var (
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 
-	cfg = common.LoadConfig()
+	cfg = config.LoadConfig()
 
 	mockStore = &mocks.MockDynamoDbStore{}
 
