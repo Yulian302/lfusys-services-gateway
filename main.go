@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "github.com/Yulian302/lfusys-services-gateway/docs"
 	_ "github.com/joho/godotenv/autoload"
@@ -22,6 +25,9 @@ import (
 // @externalDocs.description  OpenAPI
 // @externalDocs.url          https://swagger.io/resources/open-api/
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stop()
+
 	app, err := SetupApp()
 	if err != nil {
 		log.Fatalf("failed to initialize app: %v", err)
@@ -29,9 +35,22 @@ func main() {
 
 	router := BuildRouter(app)
 
-	defer app.Shutdown(context.Background())
+	go func() {
+		if err := app.Run(router); err != nil {
+			log.Printf("server stopped: %v", err)
+		}
+	}()
 
-	if err := app.Run(router); err != nil {
-		log.Fatalf("server error: %v", err)
+	<-ctx.Done()
+
+	log.Println("shutdown signal received")
+	shutDownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := app.Shutdown(shutDownContext); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
 	}
+
+	log.Println("server exited properly")
+
 }

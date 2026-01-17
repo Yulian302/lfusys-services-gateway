@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
 
 	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,6 +17,8 @@ import (
 )
 
 type App struct {
+	Server *http.Server
+
 	DynamoDB *dynamodb.Client
 	Redis    *redis.Client
 
@@ -61,15 +65,17 @@ func SetupApp() (*App, error) {
 }
 
 func (a *App) Run(r *gin.Engine) error {
-	if err := r.Run(a.Config.GatewayAddr); err != nil {
-		return err
+	a.Server = &http.Server{
+		Addr:    a.Config.GatewayAddr,
+		Handler: r,
 	}
-	return nil
+
+	return a.Server.ListenAndServe()
 }
 
 func initAWS(cfg config.AWSConfig) (aws.Config, error) {
 	awsCfg, err := awsconfig.LoadDefaultConfig(
-		context.TODO(),
+		context.Background(),
 		awsconfig.WithRegion(cfg.Region),
 	)
 	if err != nil {
@@ -90,11 +96,33 @@ func initRedis(cfg config.RedisConfig) *redis.Client {
 	})
 }
 
-func (a *App) Shutdown(ctx context.Context) {
-	if a.Services != nil && a.Services.Conn != nil {
-		_ = a.Services.Conn.Close()
+func (a *App) Shutdown(ctx context.Context) error {
+	log.Println("starting graceful shutdown")
+
+	if a.Server != nil {
+		if err := a.Server.Shutdown(ctx); err != nil {
+			log.Printf("http server shutdown error: %v", err)
+		}
 	}
+
+	if a.Services != nil {
+		if err := a.Services.Shutdown(ctx); err != nil {
+			log.Printf("services shutdown error: %v", err)
+		}
+	}
+
+	if a.Redis != nil {
+		if err := a.Redis.Close(); err != nil {
+			log.Printf("redis close error: %v", err)
+		}
+	}
+
 	if a.TracerProvider != nil {
-		_ = a.TracerProvider.Shutdown(ctx)
+		if err := a.TracerProvider.Shutdown(ctx); err != nil {
+			log.Printf("tracer shutdown error: %v", err)
+		}
 	}
+
+	log.Println("graceful shutdown complete")
+	return nil
 }
