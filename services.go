@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"log"
+
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
@@ -32,6 +35,10 @@ type Services struct {
 	Providers *Providers
 
 	Conn *grpc.ClientConn
+}
+
+type Shutdowner interface {
+	Shutdown(context.Context) error
 }
 
 func BuildServices(app *App) *Services {
@@ -75,4 +82,42 @@ func BuildServices(app *App) *Services {
 
 		Conn: conn,
 	}
+}
+
+func (s *Services) Shutdown(ctx context.Context) error {
+	log.Println("shutting down services")
+
+	if s.Stores != nil {
+		if err := s.Stores.Shutdown(ctx); err != nil {
+			log.Printf("stores shutdown error: %v", err)
+		}
+	}
+
+	if s.Conn != nil {
+		if err := s.Conn.Close(); err != nil {
+			log.Printf("grpc conn close error: %v", err)
+		}
+	}
+
+	log.Println("services shutdown complete")
+	return nil
+}
+
+func (s *Stores) Shutdown(ctx context.Context) error {
+	log.Println("shutting down stores")
+
+	shutdownIfPossible := func(name string, v any) {
+		if sh, ok := v.(Shutdowner); ok {
+			if err := sh.Shutdown(ctx); err != nil {
+				log.Printf("%s store shutdown error: %v", name, err)
+			}
+		}
+	}
+
+	shutdownIfPossible("users", s.users)
+	shutdownIfPossible("sessions", s.sessions)
+	shutdownIfPossible("uploads", s.uploads)
+
+	log.Println("stores shutdown complete")
+	return nil
 }

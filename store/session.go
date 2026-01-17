@@ -39,3 +39,7 @@ func (s *RedisStoreImpl) Validate(ctx context.Context, key string) (bool, error)
 	_ = s.client.Del(ctx, key).Err()
 	return true, nil
 }
+
+func (s *RedisStoreImpl) Shutdown(ctx context.Context) error {
+	return s.client.Close()
+}
