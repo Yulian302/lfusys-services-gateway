@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -66,8 +67,11 @@ func SetupApp() (*App, error) {
 
 func (a *App) Run(r *gin.Engine) error {
 	a.Server = &http.Server{
-		Addr:    a.Config.GatewayAddr,
-		Handler: r,
+		Addr:         a.Config.GatewayAddr,
+		Handler:      r,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	return a.Server.ListenAndServe()

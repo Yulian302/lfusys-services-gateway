@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 	cfg = config.LoadConfig()
 	mockStore = &mocks.MockDynamoDbStore{}
 
-	uploadsService := services.NewUploadsService(mockStore, nil)
+	uploadsService := services.NewUploadsService(mockStore, nil, nil)
 	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
 
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
