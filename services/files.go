@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-gateway/files/types"
@@ -22,11 +24,14 @@ func NewFileServiceImpl(stub pb.UploaderClient) *FileServiceImpl {
 }
 
 func (svc *FileServiceImpl) GetFiles(ctx context.Context, email string) (*types.FilesResponse, error) {
-	reply, err := svc.clientStub.GetFiles(ctx, &pb.UserInfo{
+	grpcContext, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	reply, err := svc.clientStub.GetFiles(grpcContext, &pb.UserInfo{
 		Email: email,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get files via grpc: %w", err)
 	}
 
 	files := make([]*types.File, len(reply.Files))

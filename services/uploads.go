@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/errors"
@@ -48,8 +49,10 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 	if exists {
 		return nil, fmt.Errorf("%w", errors.ErrSessionConflict)
 	}
+	grpcContext, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
 
-	res, err := s.clientStub.StartUpload(ctx, &pb.UploadRequest{
+	res, err := s.clientStub.StartUpload(grpcContext, &pb.UploadRequest{
 		UserEmail: email,
 		FileSize:  uint64(fileSize),
 	})
