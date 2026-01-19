@@ -9,6 +9,7 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	uploadstypes "github.com/Yulian302/lfusys-services-gateway/uploads/types"
+	"github.com/sony/gobreaker/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -21,13 +22,15 @@ type UploadsService interface {
 type UploadsServiceImpl struct {
 	uploadsStore store.UploadsStore
 	clientStub   pb.UploaderClient
+	breaker      *gobreaker.CircuitBreaker[*pb.UploadReply]
 	maxFileSize  int64
 }
 
-func NewUploadsService(uploadsStore store.UploadsStore, cb pb.UploaderClient) *UploadsServiceImpl {
+func NewUploadsService(uploadsStore store.UploadsStore, cb pb.UploaderClient, breaker *gobreaker.CircuitBreaker[*pb.UploadReply]) *UploadsServiceImpl {
 	return &UploadsServiceImpl{
 		uploadsStore: uploadsStore,
 		clientStub:   cb,
+		breaker:      breaker,
 		maxFileSize:  10 * 1024 * 1024 * 1024,
 	}
 }
@@ -49,13 +52,17 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 	if exists {
 		return nil, fmt.Errorf("%w", errors.ErrSessionConflict)
 	}
-	grpcContext, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
 
-	res, err := s.clientStub.StartUpload(grpcContext, &pb.UploadRequest{
-		UserEmail: email,
-		FileSize:  uint64(fileSize),
+	res, err := s.breaker.Execute(func() (*pb.UploadReply, error) {
+		grpcCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+
+		return s.clientStub.StartUpload(grpcCtx, &pb.UploadRequest{
+			UserEmail: email,
+			FileSize:  uint64(fileSize),
+		})
 	})
+
 	if err != nil {
 		if status.Code(err) == codes.ResourceExhausted {
 			return nil, fmt.Errorf("%w", errors.ErrFileSizeExceeded)

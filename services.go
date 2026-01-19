@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api"
 	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/store"
+	"github.com/sony/gobreaker/v2"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -61,8 +63,40 @@ func BuildServices(app *App) *Services {
 
 	cacheSvc := caching.NewRedisCachingService(app.Redis)
 	authSvc := services.NewAuthServiceImpl(usrStore, sessStore, cacheSvc, app.Config.JWTConfig.SecretKey, app.Config.JWTConfig.RefreshSecretKey)
-	uploadsService := services.NewUploadsService(upStore, clientStub)
-	fileService := services.NewFileServiceImpl(clientStub)
+
+	uploadsBreaker := gobreaker.NewCircuitBreaker[*pb.UploadReply](gobreaker.Settings{
+		Name: "session-service:upload",
+
+		MaxRequests: 5,
+		Interval:    30 * time.Second,
+		Timeout:     10 * time.Second,
+
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			return counts.ConsecutiveFailures >= 5
+		},
+
+		OnStateChange: func(name string, from, to gobreaker.State) {
+			log.Printf("circuit breaker %s: %s → %s", name, from, to)
+		},
+	})
+	uploadsService := services.NewUploadsService(upStore, clientStub, uploadsBreaker)
+
+	fileBreaker := gobreaker.NewCircuitBreaker[*pb.FilesReply](gobreaker.Settings{
+		Name: "session-service:get-files",
+
+		MaxRequests: 5,
+		Interval:    30 * time.Second,
+		Timeout:     10 * time.Second,
+
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			return counts.ConsecutiveFailures >= 5
+		},
+
+		OnStateChange: func(name string, from, to gobreaker.State) {
+			log.Printf("circuit breaker %s: %s → %s", name, from, to)
+		},
+	})
+	fileService := services.NewFileServiceImpl(clientStub, fileBreaker)
 
 	return &Services{
 		Auth:    authSvc,
