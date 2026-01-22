@@ -24,6 +24,9 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	os.Setenv("JWT_SECRET_KEY", "test-secret")
+	defer os.Unsetenv("JWT_SECRET_KEY")
+
 	gin.SetMode(gin.TestMode)
 
 	r = gin.Default()
