@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/Yulian302/lfusys-services-commons/health"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamoTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -10,6 +13,7 @@ import (
 
 type UploadsStore interface {
 	FindExisting(ctx context.Context, email string) (bool, error)
+	health.ReadinessCheck
 }
 
 type DynamoDbUploadsStore struct {
@@ -22,6 +26,22 @@ func NewUploadsStore(dbClient *dynamodb.Client, tableName string) *DynamoDbUploa
 		Client:    dbClient,
 		TableName: tableName,
 	}
+}
+
+func (s *DynamoDbUploadsStore) IsReady() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+		TableName: aws.String(s.TableName),
+	})
+	fmt.Println(err)
+
+	return err == nil
+}
+
+func (s *DynamoDbUploadsStore) Name() string {
+	return "UploadsStore[sessions]"
 }
 
 func (s *DynamoDbUploadsStore) FindExisting(ctx context.Context, email string) (bool, error) {

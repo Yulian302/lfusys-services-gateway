@@ -6,6 +6,7 @@ import (
 	"time"
 
 	common "github.com/Yulian302/lfusys-services-commons"
+	"github.com/Yulian302/lfusys-services-commons/health"
 	"github.com/Yulian302/lfusys-services-commons/logger"
 	"github.com/Yulian302/lfusys-services-commons/ratelimit"
 	"github.com/Yulian302/lfusys-services-commons/responses"
@@ -83,6 +84,13 @@ func registerRoutes(r *gin.Engine, app *App, s *Services) {
 	r.GET("/test", func(ctx *gin.Context) {
 		responses.JSONSuccess(ctx, "ok")
 	})
+
+	health.RegisterHealthRoutes(
+		health.NewHealthHandler(
+			s.Stores.uploads,
+		),
+		r,
+	)
 
 	routers.RegisterAuthRoutes(
 		handlers.NewAuthHandler(s.Auth),
