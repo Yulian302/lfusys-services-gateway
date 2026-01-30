@@ -43,7 +43,7 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	isValid, err := h.authSvc.ValidateState(c, oauth.OAuthPrefix+state)
+	isValid, err := h.authSvc.IsValidState(c, oauth.OAuthPrefix+state)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "could not validate state")
 		return

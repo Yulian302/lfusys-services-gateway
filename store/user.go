@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	apperror "github.com/Yulian302/lfusys-services-commons/errors"
+	"github.com/Yulian302/lfusys-services-commons/health"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -15,6 +17,8 @@ import (
 type UserStore interface {
 	GetByEmail(ctx context.Context, email string) (*types.User, error)
 	Create(ctx context.Context, user types.User) error
+
+	health.ReadinessCheck
 }
 
 type DynamoDbUserStore struct {
@@ -27,6 +31,21 @@ func NewUserStore(dbClient *dynamodb.Client, tableName string) *DynamoDbUserStor
 		Client:    dbClient,
 		TableName: tableName,
 	}
+}
+
+func (s *DynamoDbUserStore) IsReady(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+
+	_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+		TableName: aws.String(s.TableName),
+	})
+
+	return err
+}
+
+func (s *DynamoDbUserStore) Name() string {
+	return "UserStore[users]"
 }
 
 func (s *DynamoDbUserStore) GetByEmail(ctx context.Context, email string) (*types.User, error) {

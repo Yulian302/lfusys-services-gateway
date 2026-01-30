@@ -44,15 +44,6 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 		return nil, fmt.Errorf("%w", errors.ErrFileSizeExceeded)
 	}
 
-	exists, err := s.uploadsStore.FindExisting(ctx, email)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrInternalServer, err)
-	}
-
-	if exists {
-		return nil, fmt.Errorf("%w", errors.ErrSessionConflict)
-	}
-
 	res, err := s.breaker.Execute(func() (*pb.UploadReply, error) {
 		grpcCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()

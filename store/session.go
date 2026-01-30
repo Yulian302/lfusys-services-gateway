@@ -8,8 +8,8 @@ import (
 )
 
 type SessionStore interface {
-	Create(ctx context.Context, key, value string) error
-	Validate(ctx context.Context, key string) (bool, error)
+	Create(ctx context.Context, key string) error
+	IsStateExists(ctx context.Context, key string) (bool, error)
 }
 
 type RedisStoreImpl struct {
@@ -22,12 +22,12 @@ func NewRedisStoreImpl(client *redis.Client) *RedisStoreImpl {
 	}
 }
 
-func (s *RedisStoreImpl) Create(ctx context.Context, key, value string) error {
-	cmd := s.client.Set(ctx, key, value, time.Minute)
+func (s *RedisStoreImpl) Create(ctx context.Context, key string) error {
+	cmd := s.client.SetNX(ctx, key, "1", time.Minute)
 	return cmd.Err()
 }
 
-func (s *RedisStoreImpl) Validate(ctx context.Context, key string) (bool, error) {
+func (s *RedisStoreImpl) IsStateExists(ctx context.Context, key string) (bool, error) {
 	_, err := s.client.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return false, nil
