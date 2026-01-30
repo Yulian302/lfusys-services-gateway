@@ -88,6 +88,7 @@ func registerRoutes(r *gin.Engine, app *App, s *Services) {
 	health.RegisterHealthRoutes(
 		health.NewHealthHandler(
 			s.Stores.uploads,
+			s.Stores.users,
 		),
 		r,
 	)

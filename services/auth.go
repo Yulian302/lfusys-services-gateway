@@ -37,7 +37,7 @@ type OAuth interface {
 	LoginOAuth(ctx context.Context, email string) (*LoginResponse, error)
 	RegisterOAuth(ctx context.Context, userData oauth.OAuthUser) (types.User, error)
 	SaveState(ctx context.Context, state string) error
-	ValidateState(ctx context.Context, callbackState string) (bool, error)
+	IsValidState(ctx context.Context, callbackState string) (bool, error)
 }
 
 type AuthService interface {
@@ -258,16 +258,19 @@ func (s *AuthServiceImpl) RefreshToken(ctx context.Context, refreshToken string)
 }
 
 func (s *AuthServiceImpl) SaveState(ctx context.Context, state string) error {
-	err := s.sessionStore.Create(ctx, state, "")
-	return err
+	if err := s.sessionStore.Create(ctx, state); err != nil {
+		log.Printf("WARN: state store unavailable, continuing without persistence: %v", err)
+	}
+	return nil
 }
 
-func (s *AuthServiceImpl) ValidateState(ctx context.Context, callbackState string) (bool, error) {
-	valid, err := s.sessionStore.Validate(ctx, callbackState)
+func (s *AuthServiceImpl) IsValidState(ctx context.Context, callbackState string) (bool, error) {
+	isStateExists, err := s.sessionStore.IsStateExists(ctx, callbackState)
 	if err != nil {
-		return false, err
+		log.Printf("state store unavailable, failing open: %v", err)
+		return true, nil
 	}
-	if !valid {
+	if !isStateExists {
 		return false, nil
 	}
 	return true, nil

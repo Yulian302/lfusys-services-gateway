@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/Yulian302/lfusys-services-commons/health"
@@ -13,6 +12,7 @@ import (
 
 type UploadsStore interface {
 	FindExisting(ctx context.Context, email string) (bool, error)
+
 	health.ReadinessCheck
 }
 
@@ -28,16 +28,15 @@ func NewUploadsStore(dbClient *dynamodb.Client, tableName string) *DynamoDbUploa
 	}
 }
 
-func (s *DynamoDbUploadsStore) IsReady() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+func (s *DynamoDbUploadsStore) IsReady(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(s.TableName),
 	})
-	fmt.Println(err)
 
-	return err == nil
+	return err
 }
 
 func (s *DynamoDbUploadsStore) Name() string {

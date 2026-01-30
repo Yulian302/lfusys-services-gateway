@@ -94,9 +94,12 @@ func initDynamo(cfg aws.Config) *dynamodb.Client {
 
 func initRedis(cfg config.RedisConfig) *redis.Client {
 	return redis.NewClient(&redis.Options{
-		Addr:     cfg.HOST,
-		Password: "",
-		DB:       0,
+		Addr:         cfg.HOST,
+		Password:     "",
+		DB:           0,
+		DialTimeout:  50 * time.Millisecond,
+		ReadTimeout:  50 * time.Millisecond,
+		WriteTimeout: 50 * time.Millisecond,
 	})
 }
 
