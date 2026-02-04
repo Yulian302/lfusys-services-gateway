@@ -1,11 +1,9 @@
 package main
 
 import (
-	"log"
 	"strings"
 	"time"
 
-	common "github.com/Yulian302/lfusys-services-commons"
 	"github.com/Yulian302/lfusys-services-commons/health"
 	"github.com/Yulian302/lfusys-services-commons/logger"
 	"github.com/Yulian302/lfusys-services-commons/ratelimit"
@@ -64,13 +62,7 @@ func applyTracing(r *gin.Engine, app *App) {
 		return
 	}
 
-	tp, err := common.StartTracing()
-	if err != nil {
-		log.Fatalf("failed to start tracing: %v", err)
-	}
-
-	app.TracerProvider = tp
-	r.Use(otelgin.Middleware("gateway"))
+	r.Use(otelgin.Middleware("gateway-service"))
 }
 
 func applySwagger(r *gin.Engine, app *App) {

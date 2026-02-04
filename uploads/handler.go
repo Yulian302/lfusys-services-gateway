@@ -36,34 +36,34 @@ type UploadRequest struct {
 // @Failure      400  {object}  HTTPError "Bad request params"
 // @Failure      500  {object}  HTTPError
 // @Router       /uploads/start [post]
-func (h *UploadsHandler) StartUpload(ctx *gin.Context) {
-	email := ctx.GetString("email")
+func (h *UploadsHandler) StartUpload(c *gin.Context) {
+	email := c.GetString("email")
 	if email == "" {
-		errors.UnauthorizedResponse(ctx, "user not authenticated")
+		errors.UnauthorizedResponse(c, "user not authenticated")
 		return
 	}
 
 	var uploadReq UploadRequest
-	if err := ctx.ShouldBindJSON(&uploadReq); err != nil {
-		errors.BadRequestResponse(ctx, err.Error())
+	if err := c.ShouldBindJSON(&uploadReq); err != nil {
+		errors.BadRequestResponse(c, err.Error())
 		return
 	}
 
-	uploadResp, err := h.uploadsService.StartUpload(ctx, email, int64(uploadReq.FileSize))
+	uploadResp, err := h.uploadsService.StartUpload(c.Request.Context(), email, int64(uploadReq.FileSize))
 	if err != nil {
 		if error.Is(err, errors.ErrFileSizeExceeded) || error.Is(err, errors.ErrFileSizeInvalid) {
-			errors.BadRequestResponse(ctx, "file cannot be larger than 10GB")
+			errors.BadRequestResponse(c, "file cannot be larger than 10GB")
 		} else if error.Is(err, errors.ErrSessionConflict) {
-			errors.ConflictResponse(ctx, "upload session already exists")
+			errors.ConflictResponse(c, "upload session already exists")
 		} else if error.Is(err, errors.ErrServiceUnavailable) {
-			errors.ServiceUnavailableResponse(ctx, "upload service unavailable")
+			errors.ServiceUnavailableResponse(c, "upload service unavailable")
 		} else {
-			errors.InternalServerErrorResponse(ctx, err.Error())
+			errors.InternalServerErrorResponse(c, err.Error())
 		}
 		return
 	}
 
-	ctx.JSON(http.StatusOK, uploadstypes.UploadResponse{
+	c.JSON(http.StatusOK, uploadstypes.UploadResponse{
 		TotalChunks: uploadResp.TotalChunks,
 		UploadUrls:  uploadResp.UploadUrls,
 		UploadId:    uploadResp.UploadId,
@@ -77,7 +77,7 @@ func (h *UploadsHandler) GetUploadStatus(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.uploadsService.GetUploadStatus(c, uploadId)
+	resp, err := h.uploadsService.GetUploadStatus(c.Request.Context(), uploadId)
 	if err != nil {
 		if error.Is(err, errors.ErrGrpcFailed) {
 			errors.InternalServerErrorResponse(c, "grpc failed")
