@@ -23,7 +23,7 @@ func (h *FileHandler) GetFiles(c *gin.Context) {
 		errors.ForbiddenResponse(c, "could not validate user authenticity")
 		return
 	}
-	resp, err := h.fileService.GetFiles(c, email)
+	resp, err := h.fileService.GetFiles(c.Request.Context(), email)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "could not get files")
 		return

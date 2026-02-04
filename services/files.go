@@ -29,7 +29,7 @@ func NewFileServiceImpl(stub pb.UploaderClient, breaker *gobreaker.CircuitBreake
 func (svc *FileServiceImpl) GetFiles(ctx context.Context, email string) (*types.FilesResponse, error) {
 
 	reply, err := svc.breaker.Execute(func() (*pb.FilesReply, error) {
-		grpcCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		grpcCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2*time.Second))
 		defer cancel()
 
 		return svc.clientStub.GetFiles(grpcCtx, &pb.UserInfo{

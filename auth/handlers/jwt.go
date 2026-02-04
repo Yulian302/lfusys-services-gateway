@@ -24,24 +24,24 @@ func NewAuthHandler(authService services.AuthService) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) Me(ctx *gin.Context) {
-	token, err := ctx.Cookie("jwt")
+func (h *AuthHandler) Me(c *gin.Context) {
+	token, err := c.Cookie("jwt")
 	if err != nil || token == "" {
-		errors.UnauthorizedResponse(ctx, "unauthorized")
+		errors.UnauthorizedResponse(c, "unauthorized")
 		return
 	}
 
-	user, err := h.authService.GetCurrentUser(ctx, token)
+	user, err := h.authService.GetCurrentUser(c.Request.Context(), token)
 	if err != nil {
 		if error.Is(err, errors.ErrUserNotFound) || error.Is(err, errors.ErrInvalidToken) {
-			errors.UnauthorizedResponse(ctx, err.Error())
+			errors.UnauthorizedResponse(c, err.Error())
 		} else {
-			errors.InternalServerErrorResponse(ctx, err.Error())
+			errors.InternalServerErrorResponse(c, err.Error())
 		}
 		return
 	}
 
-	responses.JSONData(ctx, http.StatusOK, types.MeResponse{
+	responses.JSONData(c, http.StatusOK, types.MeResponse{
 		Email:         user.Email,
 		Name:          user.Name,
 		Authenticated: true,
@@ -49,45 +49,45 @@ func (h *AuthHandler) Me(ctx *gin.Context) {
 
 }
 
-func (h *AuthHandler) Register(ctx *gin.Context) {
+func (h *AuthHandler) Register(c *gin.Context) {
 	var req types.RegisterUser
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		errors.BadRequestResponse(ctx, err.Error())
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errors.BadRequestResponse(c, err.Error())
 		return
 	}
 
-	if err := h.authService.Register(ctx, req); err != nil {
+	if err := h.authService.Register(c.Request.Context(), req); err != nil {
 		if error.Is(err, errors.ErrUserAlreadyExists) {
-			errors.ConflictResponse(ctx, err.Error())
+			errors.ConflictResponse(c, err.Error())
 		} else {
-			errors.InternalServerErrorResponse(ctx, err.Error())
+			errors.InternalServerErrorResponse(c, err.Error())
 		}
 		return
 	}
 
-	responses.JSONCreated(ctx, "created")
+	responses.JSONCreated(c, "created")
 }
 
-func (h *AuthHandler) Login(ctx *gin.Context) {
+func (h *AuthHandler) Login(c *gin.Context) {
 	var loginUser types.LoginUser
 
-	if err := ctx.ShouldBindJSON(&loginUser); err != nil {
-		errors.BadRequestResponse(ctx, err.Error())
+	if err := c.ShouldBindJSON(&loginUser); err != nil {
+		errors.BadRequestResponse(c, err.Error())
 		return
 	}
 
-	loginResp, err := h.authService.Login(ctx, loginUser.Email, loginUser.Password)
+	loginResp, err := h.authService.Login(c.Request.Context(), loginUser.Email, loginUser.Password)
 	if err != nil {
 		if error.Is(err, errors.ErrInvalidCredentials) {
-			errors.UnauthorizedResponse(ctx, err.Error())
+			errors.UnauthorizedResponse(c, err.Error())
 		} else {
-			errors.InternalServerErrorResponse(ctx, err.Error())
+			errors.InternalServerErrorResponse(c, err.Error())
 		}
 		return
 	}
 
 	// set refresh token (30 days)
-	ctx.SetCookie(
+	c.SetCookie(
 		"refresh_token",
 		loginResp.RefreshToken,
 		int(jwttypes.RefreshTokenDuration),
@@ -98,7 +98,7 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 	)
 
 	// set access token (30 mins)
-	ctx.SetCookie(
+	c.SetCookie(
 		"jwt",
 		loginResp.AccessToken,
 		int(jwttypes.AccessTokenDuration),
@@ -108,29 +108,29 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		true,
 	)
 
-	responses.JSONSuccess(ctx, "login successful")
+	responses.JSONSuccess(c, "login successful")
 }
 
-func (h *AuthHandler) Refresh(ctx *gin.Context) {
-	oldRefreshToken, err := ctx.Cookie("refresh_token")
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	oldRefreshToken, err := c.Cookie("refresh_token")
 	if err != nil || oldRefreshToken == "" {
-		errors.UnauthorizedResponse(ctx, "missing refresh token")
+		errors.UnauthorizedResponse(c, "missing refresh token")
 		return
 	}
 
-	tokenPair, err := h.authService.RefreshToken(ctx, oldRefreshToken)
+	tokenPair, err := h.authService.RefreshToken(c.Request.Context(), oldRefreshToken)
 	if err != nil {
 		if error.Is(err, errors.ErrUserNotFound) || error.Is(err, errors.ErrInvalidToken) || error.Is(err, errors.ErrInvalidTokenType) {
-			errors.ConflictResponse(ctx, err.Error())
+			errors.ConflictResponse(c, err.Error())
 		} else {
-			errors.InternalServerErrorResponse(ctx, err.Error())
+			errors.InternalServerErrorResponse(c, err.Error())
 		}
 		return
 	}
 
-	ctx.SetCookie("jwt", tokenPair.AccessToken, int(jwttypes.AccessTokenDuration), jwttypes.CookiePath, "", false, true)
-	ctx.SetCookie("refresh_token", tokenPair.RefreshToken, int(jwttypes.RefreshTokenDuration), jwttypes.CookiePath, "", false, true)
-	responses.JSONSuccess(ctx, "token refreshed")
+	c.SetCookie("jwt", tokenPair.AccessToken, int(jwttypes.AccessTokenDuration), jwttypes.CookiePath, "", false, true)
+	c.SetCookie("refresh_token", tokenPair.RefreshToken, int(jwttypes.RefreshTokenDuration), jwttypes.CookiePath, "", false, true)
+	responses.JSONSuccess(c, "token refreshed")
 }
 
 func (h *AuthHandler) Logout(ctx *gin.Context) {
@@ -146,7 +146,7 @@ func (h *AuthHandler) NewState(c *gin.Context) {
 		return
 	}
 
-	err = h.authService.SaveState(c, oauth.OAuthPrefix+state)
+	err = h.authService.SaveState(c.Request.Context(), oauth.OAuthPrefix+state)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "failed to store state")
 		return

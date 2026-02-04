@@ -8,11 +8,11 @@ import (
 )
 
 func JWTMiddleware(secretKey string) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		token, err := ctx.Cookie("jwt")
+	return func(c *gin.Context) {
+		token, err := c.Cookie("jwt")
 		if err != nil || token == "" {
-			errors.UnauthorizedResponse(ctx, "unauthorized")
-			ctx.Abort()
+			errors.UnauthorizedResponse(c, "unauthorized")
+			c.Abort()
 			return
 		}
 
@@ -20,24 +20,24 @@ func JWTMiddleware(secretKey string) gin.HandlerFunc {
 			return []byte(secretKey), nil
 		})
 		if err != nil || !parsedToken.Valid {
-			refresh, _ := ctx.Cookie("refresh_token")
+			refresh, _ := c.Cookie("refresh_token")
 			if refresh != "" {
-				errors.UnauthorizedResponse(ctx, "token_expired")
+				errors.UnauthorizedResponse(c, "token_expired")
 			} else {
-				errors.UnauthorizedResponse(ctx, "invalid_token")
+				errors.UnauthorizedResponse(c, "invalid_token")
 			}
-			ctx.Abort()
+			c.Abort()
 			return
 		}
 
 		claims := parsedToken.Claims.(*jwttypes.JWTClaims)
 		if claims.Type != "access" {
-			errors.UnauthorizedResponse(ctx, "invalid token type")
-			ctx.Abort()
+			errors.UnauthorizedResponse(c, "invalid token type")
+			c.Abort()
 			return
 		}
 
-		ctx.Set("email", claims.Subject)
-		ctx.Next()
+		c.Set("email", claims.Subject)
+		c.Next()
 	}
 }

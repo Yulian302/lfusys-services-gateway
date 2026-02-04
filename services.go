@@ -44,11 +44,11 @@ type Shutdowner interface {
 }
 
 func BuildServices(app *App) *Services {
-
-	clientHandler := otelgrpc.NewClientHandler(
-		otelgrpc.WithMessageEvents(otelgrpc.ReceivedEvents), // Record message events
+	conn, err := grpc.NewClient(
+		app.Config.ServiceConfig.SessionGRPCUrl,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
-	conn, err := grpc.NewClient(app.Config.ServiceConfig.SessionGRPCUrl, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStatsHandler(clientHandler))
 	if err != nil {
 		panic(err)
 	}

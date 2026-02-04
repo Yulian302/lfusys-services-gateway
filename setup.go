@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	common "github.com/Yulian302/lfusys-services-commons"
 	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -51,13 +52,22 @@ func SetupApp() (*App, error) {
 	if rdb == nil {
 		return nil, errors.New("could not init redis")
 	}
-
 	app := &App{
 		DynamoDB: db,
 		Redis:    rdb,
 
 		Config:    cfg,
 		AwsConfig: awsCfg,
+	}
+
+	if cfg.Tracing {
+		tp, err := common.InitTracer(context.Background(), "gateway", cfg.TracingAddr)
+		if err != nil {
+			log.Fatalf("failed to start tracing: %v", err)
+		}
+		log.Println("tracing in progress...")
+
+		app.TracerProvider = tp
 	}
 
 	app.Services = BuildServices(app)

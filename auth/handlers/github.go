@@ -43,7 +43,9 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	isValid, err := h.authSvc.IsValidState(c, oauth.OAuthPrefix+state)
+	ctx := c.Request.Context()
+
+	isValid, err := h.authSvc.IsValidState(ctx, oauth.OAuthPrefix+state)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "could not validate state")
 		return
@@ -53,22 +55,22 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	token, err := h.oAuthProvider.ExchangeCode(c, code)
+	token, err := h.oAuthProvider.ExchangeCode(ctx, code)
 	if err != nil {
 		errors.UnauthorizedResponse(c, fmt.Sprint("could not retrieve access token: ", err.Error()))
 		return
 	}
 
-	ghUser, err := h.oAuthProvider.GetOAuthUser(c, token)
+	ghUser, err := h.oAuthProvider.GetOAuthUser(ctx, token)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "could not get user data")
 		return
 	}
 
-	user, err := h.userStore.GetByEmail(c, ghUser.Email)
+	user, err := h.userStore.GetByEmail(ctx, ghUser.Email)
 	if err != nil {
 		if cerror.Is(err, errors.ErrUserNotFound) {
-			newUser, err := h.authSvc.RegisterOAuth(c, ghUser)
+			newUser, err := h.authSvc.RegisterOAuth(ctx, ghUser)
 			if err != nil {
 				errors.InternalServerErrorResponse(c, "failed to create user")
 				return
@@ -80,7 +82,7 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		}
 	}
 
-	loginResp, err := h.authSvc.LoginOAuth(c, user.Email)
+	loginResp, err := h.authSvc.LoginOAuth(ctx, user.Email)
 	if err != nil {
 		errors.InternalServerErrorResponse(c, "failed to generate session")
 		return
