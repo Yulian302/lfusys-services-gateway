@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/Yulian302/lfusys-services-commons/retries"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -23,21 +24,42 @@ func NewRedisStoreImpl(client *redis.Client) *RedisStoreImpl {
 }
 
 func (s *RedisStoreImpl) Create(ctx context.Context, key string) error {
-	cmd := s.client.SetNX(ctx, key, "1", time.Minute)
-	return cmd.Err()
+	return retries.Retry(
+		ctx,
+		3,
+		100*time.Millisecond,
+		func() error {
+			cmd := s.client.SetNX(ctx, key, "1", time.Minute)
+			return cmd.Err()
+		},
+		retries.IsRetriableRedisError,
+	)
 }
 
 func (s *RedisStoreImpl) IsStateExists(ctx context.Context, key string) (bool, error) {
-	_, err := s.client.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
+	var exists bool
 
-	_ = s.client.Del(ctx, key).Err()
-	return true, nil
+	err := retries.Retry(
+		ctx,
+		3,
+		100*time.Millisecond,
+		func() error {
+			val, err := s.client.Get(ctx, key).Result()
+			if err == redis.Nil {
+				exists = false
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+
+			exists = val != ""
+			return s.client.Del(ctx, key).Err()
+		},
+		retries.IsRetriableRedisError,
+	)
+	return exists, err
 }
 
 func (s *RedisStoreImpl) Shutdown(ctx context.Context) error {
