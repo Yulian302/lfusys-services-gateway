@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Yulian302/lfusys-services-commons/health"
+	"github.com/Yulian302/lfusys-services-commons/retries"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamoTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -32,11 +33,19 @@ func (s *DynamoDbUploadsStore) IsReady(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
-		TableName: aws.String(s.TableName),
-	})
+	return retries.Retry(
+		ctx,
+		3,
+		50*time.Millisecond,
+		func() error {
+			_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+				TableName: aws.String(s.TableName),
+			})
 
-	return err
+			return err
+		},
+		retries.IsRetriableDbError,
+	)
 }
 
 func (s *DynamoDbUploadsStore) Name() string {
@@ -44,26 +53,39 @@ func (s *DynamoDbUploadsStore) Name() string {
 }
 
 func (s *DynamoDbUploadsStore) FindExisting(ctx context.Context, email string) (bool, error) {
-	out, err := s.Client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              &s.TableName,
-		IndexName:              aws.String("user_email-index"),
-		KeyConditionExpression: aws.String("user_email = :email"),
-		ExpressionAttributeValues: map[string]dynamoTypes.AttributeValue{
-			":email": &dynamoTypes.AttributeValueMemberS{Value: email},
-		},
-	})
-	if err != nil {
-		return false, err
-	}
-	if len(out.Items) > 0 {
-		for _, item := range out.Items {
-			if status, exists := item["status"]; exists {
-				if statusStr := status.(*dynamoTypes.AttributeValueMemberS).Value; statusStr == "pending" || statusStr == "in_progress" {
-					return true, nil
+	var exists bool
+
+	err := retries.Retry(
+		ctx,
+		3,
+		100*time.Millisecond,
+		func() error {
+			out, err := s.Client.Query(ctx, &dynamodb.QueryInput{
+				TableName:              &s.TableName,
+				IndexName:              aws.String("user_email-index"),
+				KeyConditionExpression: aws.String("user_email = :email"),
+				ExpressionAttributeValues: map[string]dynamoTypes.AttributeValue{
+					":email": &dynamoTypes.AttributeValueMemberS{Value: email},
+				},
+			})
+			if err != nil {
+				return err
+			}
+			if len(out.Items) > 0 {
+				for _, item := range out.Items {
+					if status, ok := item["status"]; ok {
+						if statusStr := status.(*dynamoTypes.AttributeValueMemberS).Value; statusStr == "pending" || statusStr == "in_progress" {
+							exists = true
+							return nil
+						}
+					}
 				}
 			}
-		}
-	}
 
-	return false, nil
+			return nil
+		},
+		retries.IsRetriableDbError,
+	)
+
+	return exists, err
 }

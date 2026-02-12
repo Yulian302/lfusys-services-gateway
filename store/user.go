@@ -7,6 +7,7 @@ import (
 
 	apperror "github.com/Yulian302/lfusys-services-commons/errors"
 	"github.com/Yulian302/lfusys-services-commons/health"
+	"github.com/Yulian302/lfusys-services-commons/retries"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -37,11 +38,19 @@ func (s *DynamoDbUserStore) IsReady(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
-		TableName: aws.String(s.TableName),
-	})
+	return retries.Retry(
+		ctx,
+		3,
+		50*time.Millisecond,
+		func() error {
+			_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+				TableName: aws.String(s.TableName),
+			})
 
-	return err
+			return err
+		},
+		retries.IsRetriableDbError,
+	)
 }
 
 func (s *DynamoDbUserStore) Name() string {
@@ -49,18 +58,33 @@ func (s *DynamoDbUserStore) Name() string {
 }
 
 func (s *DynamoDbUserStore) GetByEmail(ctx context.Context, email string) (*types.User, error) {
-	res, err := s.Client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(s.TableName),
-		Key: map[string]dynamoTypes.AttributeValue{
-			"email": &dynamoTypes.AttributeValueMemberS{Value: email},
-		},
-	})
-	if err != nil || res.Item == nil {
-		return nil, apperror.ErrUserNotFound
-	}
-
 	var user types.User
-	if err := attributevalue.UnmarshalMap(res.Item, &user); err != nil {
+
+	err := retries.Retry(
+		ctx,
+		3,
+		100*time.Millisecond,
+		func() error {
+			res, err := s.Client.GetItem(ctx, &dynamodb.GetItemInput{
+				TableName: aws.String(s.TableName),
+				Key: map[string]dynamoTypes.AttributeValue{
+					"email": &dynamoTypes.AttributeValueMemberS{Value: email},
+				},
+			})
+			if err != nil {
+				return err
+			}
+
+			if res.Item == nil {
+				return apperror.ErrUserNotFound
+			}
+
+			return attributevalue.UnmarshalMap(res.Item, &user)
+		},
+		retries.IsRetriableDbError,
+	)
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -73,17 +97,26 @@ func (s *DynamoDbUserStore) Create(ctx context.Context, user types.User) error {
 		return err
 	}
 
-	_, err = s.Client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName:           aws.String(s.TableName),
-		Item:                item,
-		ConditionExpression: aws.String("attribute_not_exists(email)"),
-	})
-	if err != nil {
-		var ccf *dynamoTypes.ConditionalCheckFailedException
-		if errors.As(err, &ccf) {
-			return apperror.ErrUserAlreadyExists
-		}
-		return err
-	}
-	return nil
+	return retries.Retry(
+		ctx,
+		3,
+		100*time.Millisecond,
+		func() error {
+			_, err = s.Client.PutItem(ctx, &dynamodb.PutItemInput{
+				TableName:           aws.String(s.TableName),
+				Item:                item,
+				ConditionExpression: aws.String("attribute_not_exists(email)"),
+			})
+			if err != nil {
+				var ccf *dynamoTypes.ConditionalCheckFailedException
+				if errors.As(err, &ccf) {
+					return apperror.ErrUserAlreadyExists
+				}
+				return err
+			}
+
+			return nil
+		},
+		retries.IsRetriableDbError,
+	)
 }
