@@ -26,8 +26,8 @@ func NewRedisStoreImpl(client *redis.Client) *RedisStoreImpl {
 func (s *RedisStoreImpl) Create(ctx context.Context, key string) error {
 	return retries.Retry(
 		ctx,
-		3,
-		100*time.Millisecond,
+		retries.DefaultAttempts,
+		retries.DefaultBaseDelay,
 		func() error {
 			cmd := s.client.SetNX(ctx, key, "1", time.Minute)
 			return cmd.Err()
@@ -41,8 +41,8 @@ func (s *RedisStoreImpl) IsStateExists(ctx context.Context, key string) (bool, e
 
 	err := retries.Retry(
 		ctx,
-		3,
-		100*time.Millisecond,
+		retries.DefaultAttempts,
+		retries.DefaultBaseDelay,
 		func() error {
 			val, err := s.client.Get(ctx, key).Result()
 			if err == redis.Nil {

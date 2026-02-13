@@ -35,8 +35,8 @@ func (s *DynamoDbUploadsStore) IsReady(ctx context.Context) error {
 
 	return retries.Retry(
 		ctx,
-		3,
-		50*time.Millisecond,
+		retries.HealthAttempts,
+		retries.HealthBaseDelay,
 		func() error {
 			_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 				TableName: aws.String(s.TableName),
@@ -57,8 +57,8 @@ func (s *DynamoDbUploadsStore) FindExisting(ctx context.Context, email string) (
 
 	err := retries.Retry(
 		ctx,
-		3,
-		100*time.Millisecond,
+		retries.DefaultAttempts,
+		retries.DefaultBaseDelay,
 		func() error {
 			out, err := s.Client.Query(ctx, &dynamodb.QueryInput{
 				TableName:              &s.TableName,

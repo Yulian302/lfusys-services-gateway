@@ -40,8 +40,8 @@ func (s *DynamoDbUserStore) IsReady(ctx context.Context) error {
 
 	return retries.Retry(
 		ctx,
-		3,
-		50*time.Millisecond,
+		retries.HealthAttempts,
+		retries.HealthBaseDelay,
 		func() error {
 			_, err := s.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 				TableName: aws.String(s.TableName),
@@ -62,8 +62,8 @@ func (s *DynamoDbUserStore) GetByEmail(ctx context.Context, email string) (*type
 
 	err := retries.Retry(
 		ctx,
-		3,
-		100*time.Millisecond,
+		retries.DefaultAttempts,
+		retries.DefaultBaseDelay,
 		func() error {
 			res, err := s.Client.GetItem(ctx, &dynamodb.GetItemInput{
 				TableName: aws.String(s.TableName),
@@ -99,8 +99,8 @@ func (s *DynamoDbUserStore) Create(ctx context.Context, user types.User) error {
 
 	return retries.Retry(
 		ctx,
-		3,
-		100*time.Millisecond,
+		retries.DefaultAttempts,
+		retries.DefaultBaseDelay,
 		func() error {
 			_, err = s.Client.PutItem(ctx, &dynamodb.PutItemInput{
 				TableName:           aws.String(s.TableName),
