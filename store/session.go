@@ -8,13 +8,20 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+type RedisClient interface {
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd
+	Get(ctx context.Context, key string) *redis.StringCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	Close() error
+}
+
 type SessionStore interface {
 	Create(ctx context.Context, key string) error
 	IsStateExists(ctx context.Context, key string) (bool, error)
 }
 
 type RedisStoreImpl struct {
-	client *redis.Client
+	client RedisClient
 }
 
 func NewRedisStoreImpl(client *redis.Client) *RedisStoreImpl {
