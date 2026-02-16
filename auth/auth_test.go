@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 
 	authService := services.NewAuthServiceImpl(mockStore, nil, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
 	authHandler := handlers.NewAuthHandler(authService)
-	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, r)
+	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, &r.RouterGroup)
 
 	os.Exit(m.Run())
 }

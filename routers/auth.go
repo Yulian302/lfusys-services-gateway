@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, googleh *handlers.GoogleHandler, jwtSecret string, route *gin.Engine) {
+func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, googleh *handlers.GoogleHandler, jwtSecret string, route *gin.RouterGroup) {
 	auth := route.Group("/auth")
 
 	auth.GET("/me", authmid.JWTMiddleware(jwtSecret), jwt.Me)
