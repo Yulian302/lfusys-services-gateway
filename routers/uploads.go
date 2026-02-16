@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterUploadsRoutes(h *uploads.UploadsHandler, jwtSecret string, route *gin.Engine) {
+func RegisterUploadsRoutes(h *uploads.UploadsHandler, jwtSecret string, route *gin.RouterGroup) {
 	uploads := route.Group("/uploads")
 
 	uploads.Use(auth.JWTMiddleware(jwtSecret))

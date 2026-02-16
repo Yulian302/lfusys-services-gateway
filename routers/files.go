@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterFileRoutes(h *files.FileHandler, jwtSecret string, route *gin.Engine) {
+func RegisterFileRoutes(h *files.FileHandler, jwtSecret string, route *gin.RouterGroup) {
 	files := route.Group("/files")
 
 	files.GET("/", auth.JWTMiddleware(jwtSecret), h.GetFiles)

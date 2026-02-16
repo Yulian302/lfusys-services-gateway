@@ -85,23 +85,25 @@ func registerRoutes(r *gin.Engine, app *App, s *Services) {
 		r,
 	)
 
+	v1 := routers.ApplyApiVersioning("1", r)
+
 	routers.RegisterAuthRoutes(
 		handlers.NewAuthHandler(s.Auth),
 		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, s.Auth, s.Stores.users, s.Providers.Github),
 		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, s.Auth, s.Stores.users, s.Providers.Google),
 		app.Config.JWTConfig.SecretKey,
-		r,
+		v1,
 	)
 
 	routers.RegisterUploadsRoutes(
 		uploads.NewUploadsHandler(s.Uploads),
 		app.Config.JWTConfig.SecretKey,
-		r,
+		v1,
 	)
 
 	routers.RegisterFileRoutes(
 		files.NewFileHandler(s.Files),
 		app.Config.JWTConfig.SecretKey,
-		r,
+		v1,
 	)
 }

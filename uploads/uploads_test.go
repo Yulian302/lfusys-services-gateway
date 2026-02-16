@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 	uploadsService := services.NewUploadsService(mockStore, nil, nil)
 	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
 
-	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, r)
+	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, &r.RouterGroup)
 
 	os.Exit(m.Run())
 }
