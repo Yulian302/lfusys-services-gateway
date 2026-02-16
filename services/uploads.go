@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/Yulian302/lfusys-services-commons/api"
+	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	uploadstypes "github.com/Yulian302/lfusys-services-gateway/uploads/types"

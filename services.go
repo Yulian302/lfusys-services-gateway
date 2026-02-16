@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/Yulian302/lfusys-services-commons/api"
+	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
 	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/services"
