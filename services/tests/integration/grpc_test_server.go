@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	pb "github.com/Yulian302/lfusys-services-commons/api"
+	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

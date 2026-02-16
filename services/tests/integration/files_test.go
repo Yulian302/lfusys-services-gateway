@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/Yulian302/lfusys-services-commons/api"
+	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
 	"github.com/sony/gobreaker/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
