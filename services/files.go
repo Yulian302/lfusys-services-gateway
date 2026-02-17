@@ -12,14 +12,15 @@ import (
 
 type FileService interface {
 	GetFiles(ctx context.Context, email string) (*types.FilesResponse, error)
+	Delete(ctx context.Context, fileId string) error
 }
 
 type FileServiceImpl struct {
 	clientStub pb.UploaderClient
-	breaker    *gobreaker.CircuitBreaker[*pb.FilesReply]
+	breaker    *gobreaker.CircuitBreaker[any]
 }
 
-func NewFileServiceImpl(stub pb.UploaderClient, breaker *gobreaker.CircuitBreaker[*pb.FilesReply]) *FileServiceImpl {
+func NewFileServiceImpl(stub pb.UploaderClient, breaker *gobreaker.CircuitBreaker[any]) *FileServiceImpl {
 	return &FileServiceImpl{
 		clientStub: stub,
 		breaker:    breaker,
@@ -27,8 +28,7 @@ func NewFileServiceImpl(stub pb.UploaderClient, breaker *gobreaker.CircuitBreake
 }
 
 func (svc *FileServiceImpl) GetFiles(ctx context.Context, email string) (*types.FilesResponse, error) {
-
-	reply, err := svc.breaker.Execute(func() (*pb.FilesReply, error) {
+	replyRaw, err := svc.breaker.Execute(func() (any, error) {
 		grpcCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2*time.Second))
 		defer cancel()
 
@@ -36,9 +36,13 @@ func (svc *FileServiceImpl) GetFiles(ctx context.Context, email string) (*types.
 			Email: email,
 		})
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("get files via grpc: %w", err)
+	}
+
+	reply, ok := replyRaw.(*pb.FilesReply)
+	if !ok {
+		return nil, fmt.Errorf("unexpected response type from breaker")
 	}
 
 	files := make([]*types.File, len(reply.Files))
@@ -57,5 +61,20 @@ func (svc *FileServiceImpl) GetFiles(ctx context.Context, email string) (*types.
 	return &types.FilesResponse{
 		Files: files,
 	}, nil
+}
 
+func (svc *FileServiceImpl) Delete(ctx context.Context, fileId string) error {
+	_, err := svc.breaker.Execute(func() (any, error) {
+		grpcCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2*time.Second))
+		defer cancel()
+
+		return svc.clientStub.DeleteFile(grpcCtx, &pb.FileDeleteRequest{
+			FileId: fileId,
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("delete file via grpc: %w", err)
+	}
+
+	return nil
 }

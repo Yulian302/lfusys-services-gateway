@@ -24,14 +24,16 @@ type UploadsServiceImpl struct {
 	clientStub   pb.UploaderClient
 	breaker      *gobreaker.CircuitBreaker[*pb.UploadReply]
 	maxFileSize  int64
+	chunkSize    int64
 }
 
-func NewUploadsService(uploadsStore store.UploadsStore, cb pb.UploaderClient, breaker *gobreaker.CircuitBreaker[*pb.UploadReply]) *UploadsServiceImpl {
+func NewUploadsService(uploadsStore store.UploadsStore, cb pb.UploaderClient, breaker *gobreaker.CircuitBreaker[*pb.UploadReply], chunkSize int64) *UploadsServiceImpl {
 	return &UploadsServiceImpl{
 		uploadsStore: uploadsStore,
 		clientStub:   cb,
 		breaker:      breaker,
 		maxFileSize:  10 * 1024 * 1024 * 1024,
+		chunkSize:    chunkSize,
 	}
 }
 
@@ -51,6 +53,7 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 		return s.clientStub.StartUpload(grpcCtx, &pb.UploadRequest{
 			UserEmail: email,
 			FileSize:  uint64(fileSize),
+			ChunkSize: uint64(s.chunkSize),
 		})
 	})
 
@@ -66,7 +69,6 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 
 	return &uploadstypes.UploadResponse{
 		TotalChunks: res.TotalChunks,
-		UploadUrls:  res.UploadUrls,
 		UploadId:    res.UploadId,
 	}, nil
 }

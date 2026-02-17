@@ -79,9 +79,16 @@ func BuildServices(app *App) *Services {
 			log.Printf("circuit breaker %s: %s → %s", name, from, to)
 		},
 	})
-	uploadsService := services.NewUploadsService(upStore, clientStub, uploadsBreaker)
 
-	fileBreaker := gobreaker.NewCircuitBreaker[*pb.FilesReply](gobreaker.Settings{
+	var chunkSize int64
+	if app.Config.Env == "DEV" {
+		chunkSize = 128 * 1024
+	} else {
+		chunkSize = 5 * 1024 * 1024
+	}
+	uploadsService := services.NewUploadsService(upStore, clientStub, uploadsBreaker, chunkSize)
+
+	fileBreaker := gobreaker.NewCircuitBreaker[any](gobreaker.Settings{
 		Name: "session-service:get-files",
 
 		MaxRequests: 5,
