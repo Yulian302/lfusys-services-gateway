@@ -2,7 +2,6 @@ package uploads
 
 import (
 	error "errors"
-	"fmt"
 	"net/http"
 
 	"github.com/Yulian302/lfusys-services-commons/errors"
@@ -63,10 +62,8 @@ func (h *UploadsHandler) StartUpload(c *gin.Context) {
 		}
 		return
 	}
-	fmt.Println(uploadResp.UploadUrls)
 	c.JSON(http.StatusOK, uploadstypes.UploadResponse{
 		TotalChunks: uploadResp.TotalChunks,
-		UploadUrls:  uploadResp.UploadUrls,
 		UploadId:    uploadResp.UploadId,
 	})
 }

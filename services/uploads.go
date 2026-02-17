@@ -66,7 +66,6 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 
 	return &uploadstypes.UploadResponse{
 		TotalChunks: res.TotalChunks,
-		UploadUrls:  res.UploadUrls,
 		UploadId:    res.UploadId,
 	}, nil
 }
