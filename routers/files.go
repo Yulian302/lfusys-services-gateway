@@ -11,4 +11,5 @@ func RegisterFileRoutes(h *files.FileHandler, jwtSecret string, route *gin.Route
 	files := route.Group("/files")
 
 	files.GET("/", auth.JWTMiddleware(jwtSecret), h.GetFiles)
+	files.DELETE("/:fileId", auth.JWTMiddleware(jwtSecret), h.DeleteFile)
 }

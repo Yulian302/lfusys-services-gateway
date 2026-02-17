@@ -31,3 +31,19 @@ func (h *FileHandler) GetFiles(c *gin.Context) {
 
 	responses.JSONData(c, 200, resp)
 }
+
+func (h *FileHandler) DeleteFile(c *gin.Context) {
+	fileId := c.Param("fileId")
+	if fileId == "" {
+		errors.BadRequestResponse(c, "file id must be specified")
+		return
+	}
+
+	err := h.fileService.Delete(c.Request.Context(), fileId)
+	if err != nil {
+		errors.InternalServerErrorResponse(c, "could not delete file")
+		return
+	}
+
+	responses.JSONDeleted(c, "success")
+}
