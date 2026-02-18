@@ -10,6 +10,7 @@ import (
 
 	common "github.com/Yulian302/lfusys-services-commons"
 	"github.com/Yulian302/lfusys-services-commons/config"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -29,6 +30,7 @@ type App struct {
 
 	Services       *Services
 	TracerProvider *trace.TracerProvider
+	Logger         logger.Logger
 }
 
 func SetupApp() (*App, error) {
@@ -52,12 +54,16 @@ func SetupApp() (*App, error) {
 	if rdb == nil {
 		return nil, errors.New("could not init redis")
 	}
+
+	appLogger := logger.NewSlogLogger(logger.CreateAppLogger(cfg.Env))
+
 	app := &App{
 		DynamoDB: db,
 		Redis:    rdb,
 
 		Config:    cfg,
 		AwsConfig: awsCfg,
+		Logger:    appLogger,
 	}
 
 	if cfg.Tracing {

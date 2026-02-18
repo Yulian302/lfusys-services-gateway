@@ -1,16 +1,16 @@
 package main
 
 import (
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/Yulian302/lfusys-services-commons/health"
-	"github.com/Yulian302/lfusys-services-commons/logger"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/ratelimit"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
 	"github.com/Yulian302/lfusys-services-gateway/files"
-	"github.com/Yulian302/lfusys-services-gateway/logging"
 	"github.com/Yulian302/lfusys-services-gateway/middleware"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/uploads"
@@ -24,8 +24,10 @@ import (
 func BuildRouter(app *App) *gin.Engine {
 	r := gin.New()
 
+	httpLogger := logger.CreateHttpLogger(app.Config.Env)
+
 	applyCors(r, app)
-	applyLogging(r, app)
+	applyLogging(r, httpLogger)
 	applyRateLimiting(r, app)
 	applyTracing(r, app)
 	applySwagger(r, app)
@@ -47,9 +49,8 @@ func applyCors(r *gin.Engine, app *App) {
 	))
 }
 
-func applyLogging(r *gin.Engine, app *App) {
-	baseLogger := logger.CreateLogger(app.Config.Env)
-	r.Use(logging.LoggerMiddleware(baseLogger))
+func applyLogging(r *gin.Engine, logger *slog.Logger) {
+	r.Use(middleware.Logger(logger))
 }
 
 func applyRateLimiting(r *gin.Engine, app *App) {
@@ -88,21 +89,21 @@ func registerRoutes(r *gin.Engine, app *App, s *Services) {
 	v1 := routers.ApplyApiVersioning("1", r)
 
 	routers.RegisterAuthRoutes(
-		handlers.NewAuthHandler(s.Auth),
-		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, s.Auth, s.Stores.users, s.Providers.Github),
-		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, s.Auth, s.Stores.users, s.Providers.Google),
+		handlers.NewAuthHandler(s.Auth, app.Logger),
+		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, s.Auth, s.Stores.users, s.Providers.Github, app.Logger),
+		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, s.Auth, s.Stores.users, s.Providers.Google, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)
 
 	routers.RegisterUploadsRoutes(
-		uploads.NewUploadsHandler(s.Uploads),
+		uploads.NewUploadsHandler(s.Uploads, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)
 
 	routers.RegisterFileRoutes(
-		files.NewFileHandler(s.Files),
+		files.NewFileHandler(s.Files, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)

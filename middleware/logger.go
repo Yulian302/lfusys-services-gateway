@@ -1,4 +1,4 @@
-package logging
+package middleware
 
 import (
 	"context"
@@ -13,7 +13,7 @@ type loggerKeyType struct{}
 
 var loggerKey = loggerKeyType{}
 
-func LoggerMiddleware(baseLogger *slog.Logger) gin.HandlerFunc {
+func Logger(baseLogger *slog.Logger) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -28,6 +28,11 @@ func LoggerMiddleware(baseLogger *slog.Logger) gin.HandlerFunc {
 			slog.String("method", c.Request.Method),
 			slog.String("path", path),
 		)
+
+		if email, ok := c.Get("email"); ok {
+			reqLogger = reqLogger.With("user", email)
+		}
+
 		ctx := context.WithValue(c.Request.Context(), loggerKey, reqLogger)
 		c.Request = c.Request.WithContext(ctx)
 
@@ -51,7 +56,7 @@ func LoggerMiddleware(baseLogger *slog.Logger) gin.HandlerFunc {
 			level,
 			"http request completed",
 			slog.Int("status", status),
-			slog.Duration("duration", duration),
+			slog.Int64("duration_ms", duration.Milliseconds()),
 		)
 
 	}

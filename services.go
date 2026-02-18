@@ -62,7 +62,7 @@ func BuildServices(app *App) *Services {
 	googleProvider := oauth.NewGoogleProvider(app.Config.GoogleConfig)
 
 	cacheSvc := caching.NewRedisCachingService(app.Redis)
-	authSvc := services.NewAuthServiceImpl(usrStore, sessStore, cacheSvc, app.Config.JWTConfig.SecretKey, app.Config.JWTConfig.RefreshSecretKey)
+	authSvc := services.NewAuthServiceImpl(usrStore, sessStore, cacheSvc, app.Config.JWTConfig.SecretKey, app.Config.JWTConfig.RefreshSecretKey, app.Logger)
 
 	uploadsBreaker := gobreaker.NewCircuitBreaker[*pb.UploadReply](gobreaker.Settings{
 		Name: "session-service:upload",
@@ -86,7 +86,7 @@ func BuildServices(app *App) *Services {
 	} else {
 		chunkSize = 5 * 1024 * 1024
 	}
-	uploadsService := services.NewUploadsService(upStore, clientStub, uploadsBreaker, chunkSize)
+	uploadsService := services.NewUploadsService(upStore, clientStub, uploadsBreaker, chunkSize, app.Logger)
 
 	fileBreaker := gobreaker.NewCircuitBreaker[any](gobreaker.Settings{
 		Name: "session-service:get-files",
@@ -103,7 +103,7 @@ func BuildServices(app *App) *Services {
 			log.Printf("circuit breaker %s: %s → %s", name, from, to)
 		},
 	})
-	fileService := services.NewFileServiceImpl(clientStub, fileBreaker)
+	fileService := services.NewFileServiceImpl(clientStub, fileBreaker, app.Logger)
 
 	return &Services{
 		Auth:    authSvc,

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Yulian302/lfusys-services-commons/config"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/test/mocks"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
 	"github.com/Yulian302/lfusys-services-gateway/services"
@@ -29,8 +30,8 @@ func TestMain(m *testing.M) {
 	cfg = config.LoadConfig()
 	mockStore = &mocks.MockDynamoDbStore{}
 
-	uploadsService := services.NewUploadsService(mockStore, nil, nil, 128*1024)
-	uploadsHandler := uploads.NewUploadsHandler(uploadsService)
+	uploadsService := services.NewUploadsService(mockStore, nil, nil, 128*1024, logger.NullLogger{})
+	uploadsHandler := uploads.NewUploadsHandler(uploadsService, nil)
 
 	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, &r.RouterGroup)
 
