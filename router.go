@@ -32,7 +32,7 @@ func BuildRouter(app *App) *gin.Engine {
 	applyTracing(r, app)
 	applySwagger(r, app)
 
-	registerRoutes(r, app, app.Services)
+	registerRoutes(r, app)
 
 	return r
 }
@@ -73,15 +73,15 @@ func applySwagger(r *gin.Engine, app *App) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
 
-func registerRoutes(r *gin.Engine, app *App, s *Services) {
+func registerRoutes(r *gin.Engine, app *App) {
 	r.GET("/test", func(ctx *gin.Context) {
 		responses.JSONSuccess(ctx, "ok")
 	})
 
 	health.RegisterHealthRoutes(
 		health.NewHealthHandler(
-			s.Stores.uploads,
-			s.Stores.users,
+			app.Services.Stores.uploads,
+			app.Services.Stores.users,
 		),
 		r,
 	)
@@ -89,21 +89,21 @@ func registerRoutes(r *gin.Engine, app *App, s *Services) {
 	v1 := routers.ApplyApiVersioning("1", r)
 
 	routers.RegisterAuthRoutes(
-		handlers.NewAuthHandler(s.Auth, app.Logger),
-		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, s.Auth, s.Stores.users, s.Providers.Github, app.Logger),
-		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, s.Auth, s.Stores.users, s.Providers.Google, app.Logger),
+		handlers.NewAuthHandler(app.Services.Auth, app.Logger),
+		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, app.Services.Auth, app.Services.Stores.users, app.Services.Providers.Github, app.Logger),
+		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, app.Services.Auth, app.Services.Stores.users, app.Services.Providers.Google, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)
 
 	routers.RegisterUploadsRoutes(
-		uploads.NewUploadsHandler(s.Uploads, app.Logger),
+		uploads.NewUploadsHandler(app.Services.Uploads, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)
 
 	routers.RegisterFileRoutes(
-		files.NewFileHandler(s.Files, app.Logger),
+		files.NewFileHandler(app.Services.Files, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)
