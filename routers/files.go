@@ -9,7 +9,8 @@ import (
 
 func RegisterFileRoutes(h *files.FileHandler, jwtSecret string, route *gin.RouterGroup) {
 	files := route.Group("/files")
+	files.Use(auth.JWTMiddleware(jwtSecret))
 
-	files.GET("/", auth.JWTMiddleware(jwtSecret), h.GetFiles)
-	files.DELETE("/:fileId", auth.JWTMiddleware(jwtSecret), h.DeleteFile)
+	files.GET("/", h.GetFiles)
+	files.DELETE("/:fileId", h.DeleteFile)
 }

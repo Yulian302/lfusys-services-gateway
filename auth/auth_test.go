@@ -9,6 +9,7 @@ import (
 
 	"github.com/Yulian302/lfusys-services-commons/config"
 	"github.com/Yulian302/lfusys-services-commons/crypt"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/test"
 	"github.com/Yulian302/lfusys-services-commons/test/mocks"
 	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
@@ -36,8 +37,8 @@ func TestMain(m *testing.M) {
 
 	r = gin.Default()
 
-	authService := services.NewAuthServiceImpl(mockStore, nil, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey)
-	authHandler := handlers.NewAuthHandler(authService)
+	authService := services.NewAuthServiceImpl(mockStore, nil, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey, logger.NullLogger{})
+	authHandler := handlers.NewAuthHandler(authService, logger.NullLogger{})
 	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, &r.RouterGroup)
 
 	os.Exit(m.Run())
