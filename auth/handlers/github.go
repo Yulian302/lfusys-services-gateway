@@ -10,24 +10,26 @@ import (
 	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
-	"github.com/Yulian302/lfusys-services-gateway/services"
+	"github.com/Yulian302/lfusys-services-gateway/services/auth"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/gin-gonic/gin"
 )
 
 type GithubHandler struct {
 	frontendURL   string
-	authSvc       services.AuthService
+	oAuthSvc      auth.OAuthService
+	stateManager  auth.StateManager
 	userStore     store.UserStore
 	oAuthProvider oauth.Provider
 
 	logger logger.Logger
 }
 
-func NewGithubHandler(frontendUrl string, ghCfg *config.GithubConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GithubHandler {
+func NewGithubHandler(frontendUrl string, ghCfg *config.GithubConfig, oauth auth.OAuthService, state auth.StateManager, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GithubHandler {
 	return &GithubHandler{
 		frontendURL:   frontendUrl,
-		authSvc:       authSvc,
+		oAuthSvc:      oauth,
+		stateManager:  state,
 		userStore:     userStore,
 		oAuthProvider: prov,
 		logger:        l,
@@ -57,7 +59,7 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	isValid, err := h.authSvc.IsValidState(ctx, oauth.OAuthPrefix+state)
+	isValid, err := h.stateManager.IsValidState(ctx, oauth.OAuthPrefix+state)
 	if err != nil {
 		h.logger.Error("github oauth callback failed",
 			"ip", c.ClientIP(),
@@ -101,7 +103,7 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 			h.logger.Info("oauth user not found, creating one...",
 				"ip", c.ClientIP(),
 			)
-			newUser, err := h.authSvc.RegisterOAuth(ctx, ghUser)
+			newUser, err := h.oAuthSvc.RegisterOAuth(ctx, ghUser)
 			if err != nil {
 				h.logger.Error("github oauth callback failed",
 					"ip", c.ClientIP(),
@@ -121,7 +123,7 @@ func (h *GithubHandler) Callback(c *gin.Context) {
 		}
 	}
 
-	loginResp, err := h.authSvc.LoginOAuth(ctx, user.Email)
+	loginResp, err := h.oAuthSvc.LoginOAuth(ctx, user.Email)
 	if err != nil {
 		h.logger.Error("github oauth callback failed",
 			"ip", c.ClientIP(),

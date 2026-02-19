@@ -11,24 +11,26 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
-	"github.com/Yulian302/lfusys-services-gateway/services"
+	"github.com/Yulian302/lfusys-services-gateway/services/auth"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/gin-gonic/gin"
 )
 
 type GoogleHandler struct {
 	frontendURL   string
-	authSvc       services.AuthService
+	oAuthSvc      auth.OAuthService
+	stateManager  auth.StateManager
 	userStore     store.UserStore
 	oauthProvider oauth.Provider
 
 	logger logger.Logger
 }
 
-func NewGoogleHandler(frontendURL string, ghCfg *config.GoogleConfig, authSvc services.AuthService, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GoogleHandler {
+func NewGoogleHandler(frontendURL string, ghCfg *config.GoogleConfig, oauth auth.OAuthService, state auth.StateManager, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GoogleHandler {
 	return &GoogleHandler{
 		frontendURL:   frontendURL,
-		authSvc:       authSvc,
+		oAuthSvc:      oauth,
+		stateManager:  state,
 		userStore:     userStore,
 		oauthProvider: prov,
 		logger:        l,
@@ -58,7 +60,7 @@ func (h *GoogleHandler) Callback(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	isValid, err := h.authSvc.IsValidState(ctx, oauth.OAuthPrefix+state)
+	isValid, err := h.stateManager.IsValidState(ctx, oauth.OAuthPrefix+state)
 	if err != nil {
 		h.logger.Error("google oauth callback failed",
 			"ip", c.ClientIP(),
@@ -111,7 +113,7 @@ func (h *GoogleHandler) Callback(c *gin.Context) {
 			h.logger.Info("oauth user not found, creating one...",
 				"ip", c.ClientIP(),
 			)
-			newUser, err := h.authSvc.RegisterOAuth(ctx, oAuthUser)
+			newUser, err := h.oAuthSvc.RegisterOAuth(ctx, oAuthUser)
 			if err != nil {
 				h.logger.Error("google oauth callback failed",
 					"ip", c.ClientIP(),
@@ -131,7 +133,7 @@ func (h *GoogleHandler) Callback(c *gin.Context) {
 		}
 	}
 
-	loginResp, err := h.authSvc.LoginOAuth(ctx, user.Email)
+	loginResp, err := h.oAuthSvc.LoginOAuth(ctx, user.Email)
 	if err != nil {
 		h.logger.Error("google oauth callback failed",
 			"ip", c.ClientIP(),

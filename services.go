@@ -9,6 +9,7 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/caching"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/services"
+	"github.com/Yulian302/lfusys-services-gateway/services/auth"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/sony/gobreaker/v2"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -28,9 +29,11 @@ type Providers struct {
 }
 
 type Services struct {
-	Auth    services.AuthService
-	Uploads services.UploadsService
-	Files   services.FileService
+	JwtAuth      auth.JwtAuthService
+	OAuth        auth.OAuthService
+	StateManager auth.StateManager
+	Uploads      services.UploadsService
+	Files        services.FileService
 
 	Stores *Stores
 
@@ -62,7 +65,23 @@ func BuildServices(app *App) *Services {
 	googleProvider := oauth.NewGoogleProvider(app.Config.GoogleConfig)
 
 	cacheSvc := caching.NewRedisCachingService(app.Redis)
-	authSvc := services.NewAuthServiceImpl(usrStore, sessStore, cacheSvc, app.Config.JWTConfig.SecretKey, app.Config.JWTConfig.RefreshSecretKey, app.Logger)
+	jwtAuthSvc := auth.NewJwtAuthServiceImpl(
+		auth.JwtAuthServiceDeps{
+			UserStore:     usrStore,
+			Cache:         cacheSvc,
+			AccessSecret:  app.Config.JWTConfig.SecretKey,
+			RefreshSecret: app.Config.JWTConfig.RefreshSecretKey,
+			Logger:        app.Logger,
+		},
+	)
+	oAuthSvc := auth.NewOAuthServiceImpl(auth.OAuthServiceDeps{
+		UserStore:     usrStore,
+		Cache:         cacheSvc,
+		AccessSecret:  app.Config.JWTConfig.SecretKey,
+		RefreshSecret: app.Config.JWTConfig.RefreshSecretKey,
+		Logger:        app.Logger,
+	})
+	regStateManager := auth.NewRegisterStateManager(sessStore, app.Logger)
 
 	uploadsBreaker := gobreaker.NewCircuitBreaker[*pb.UploadReply](gobreaker.Settings{
 		Name: "session-service:upload",
@@ -86,7 +105,13 @@ func BuildServices(app *App) *Services {
 	} else {
 		chunkSize = 5 * 1024 * 1024
 	}
-	uploadsService := services.NewUploadsService(upStore, clientStub, uploadsBreaker, chunkSize, app.Logger)
+	uploadsService := services.NewUploadsService(services.UploadsServiceDeps{
+		Store:     upStore,
+		Client:    clientStub,
+		Breaker:   uploadsBreaker,
+		ChunkSize: chunkSize,
+		Logger:    app.Logger,
+	})
 
 	fileBreaker := gobreaker.NewCircuitBreaker[any](gobreaker.Settings{
 		Name: "session-service:get-files",
@@ -106,9 +131,11 @@ func BuildServices(app *App) *Services {
 	fileService := services.NewFileServiceImpl(clientStub, fileBreaker, app.Logger)
 
 	return &Services{
-		Auth:    authSvc,
-		Uploads: uploadsService,
-		Files:   fileService,
+		JwtAuth:      jwtAuthSvc,
+		OAuth:        oAuthSvc,
+		StateManager: regStateManager,
+		Uploads:      uploadsService,
+		Files:        fileService,
 
 		Stores: &Stores{
 			users:    usrStore,

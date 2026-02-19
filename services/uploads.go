@@ -6,8 +6,8 @@ import (
 	"time"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
-	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/errors"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-gateway/store"
 	uploadstypes "github.com/Yulian302/lfusys-services-gateway/uploads/types"
 	"github.com/sony/gobreaker/v2"
@@ -20,6 +20,15 @@ type UploadsService interface {
 	GetUploadStatus(ctx context.Context, uploadID string) (*uploadstypes.UploadStatusResponse, error)
 }
 
+type UploadsServiceDeps struct {
+	Store     store.UploadsStore
+	Client    pb.UploaderClient
+	Breaker   *gobreaker.CircuitBreaker[*pb.UploadReply]
+	ChunkSize int64
+
+	Logger logger.Logger
+}
+
 type UploadsServiceImpl struct {
 	uploadsStore store.UploadsStore
 	clientStub   pb.UploaderClient
@@ -30,14 +39,14 @@ type UploadsServiceImpl struct {
 	logger logger.Logger
 }
 
-func NewUploadsService(uploadsStore store.UploadsStore, cb pb.UploaderClient, breaker *gobreaker.CircuitBreaker[*pb.UploadReply], chunkSize int64, l logger.Logger) *UploadsServiceImpl {
+func NewUploadsService(deps UploadsServiceDeps) *UploadsServiceImpl {
 	return &UploadsServiceImpl{
-		uploadsStore: uploadsStore,
-		clientStub:   cb,
-		breaker:      breaker,
+		uploadsStore: deps.Store,
+		clientStub:   deps.Client,
+		breaker:      deps.Breaker,
 		maxFileSize:  10 * 1024 * 1024 * 1024,
-		chunkSize:    chunkSize,
-		logger:       l,
+		chunkSize:    deps.ChunkSize,
+		logger:       deps.Logger,
 	}
 }
 

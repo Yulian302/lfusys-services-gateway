@@ -89,9 +89,9 @@ func registerRoutes(r *gin.Engine, app *App) {
 	v1 := routers.ApplyApiVersioning("1", r)
 
 	routers.RegisterAuthRoutes(
-		handlers.NewAuthHandler(app.Services.Auth, app.Logger),
-		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, app.Services.Auth, app.Services.Stores.users, app.Services.Providers.Github, app.Logger),
-		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, app.Services.Auth, app.Services.Stores.users, app.Services.Providers.Google, app.Logger),
+		handlers.NewAuthHandler(app.Services.JwtAuth, app.Services.StateManager, app.Logger),
+		handlers.NewGithubHandler(app.Config.FrontendURL, app.Config.GithubConfig, app.Services.OAuth,app.Services.StateManager, app.Services.Stores.users, app.Services.Providers.Github, app.Logger),
+		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, app.Services.OAuth,app.Services.StateManager, app.Services.Stores.users, app.Services.Providers.Google, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
 	)
