@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"time"
 
 	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
 	"github.com/Yulian302/lfusys-services-commons/caching"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/services"
 	"github.com/Yulian302/lfusys-services-gateway/services/auth"
@@ -21,6 +22,8 @@ type Stores struct {
 	users    store.UserStore
 	sessions store.SessionStore
 	uploads  store.UploadsStore
+
+	logger logger.Logger
 }
 
 type Providers struct {
@@ -39,22 +42,31 @@ type Services struct {
 
 	Providers *Providers
 
-	Conn *grpc.ClientConn
+	Conn   *grpc.ClientConn
+	logger logger.Logger
 }
 
 type Shutdowner interface {
 	Shutdown(context.Context) error
 }
 
-func BuildServices(app *App) *Services {
+func BuildServices(app *App) (*Services, error) {
 	conn, err := grpc.NewClient(
 		app.Config.ServiceConfig.SessionGRPCUrl,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
-		panic(err)
+		app.Logger.Error("failed to create gRPC client",
+			"url", app.Config.ServiceConfig.SessionGRPCUrl,
+			"error", err,
+		)
+		return nil, fmt.Errorf("create grpc client: %w", err)
 	}
+
+	app.Logger.Info("gRPC client created successfully",
+		"url", app.Config.ServiceConfig.SessionGRPCUrl,
+	)
 
 	usrStore := store.NewUserStore(app.DynamoDB, app.Config.DynamoDBConfig.UsersTableName)
 	sessStore := store.NewRedisStoreImpl(app.Redis)
@@ -64,7 +76,7 @@ func BuildServices(app *App) *Services {
 	githubProvider := oauth.NewGithubProvider(app.Config.GithubConfig)
 	googleProvider := oauth.NewGoogleProvider(app.Config.GoogleConfig)
 
-	cacheSvc := caching.NewRedisCachingService(app.Redis)
+	cacheSvc := caching.NewRedisCachingService(app.Redis, app.Logger)
 	jwtAuthSvc := auth.NewJwtAuthServiceImpl(
 		auth.JwtAuthServiceDeps{
 			UserStore:     usrStore,
@@ -95,7 +107,7 @@ func BuildServices(app *App) *Services {
 		},
 
 		OnStateChange: func(name string, from, to gobreaker.State) {
-			log.Printf("circuit breaker %s: %s → %s", name, from, to)
+			app.Logger.Info(fmt.Sprintf("circuit breaker %s: %s → %s", name, from, to))
 		},
 	})
 
@@ -125,10 +137,12 @@ func BuildServices(app *App) *Services {
 		},
 
 		OnStateChange: func(name string, from, to gobreaker.State) {
-			log.Printf("circuit breaker %s: %s → %s", name, from, to)
+			app.Logger.Info(fmt.Sprintf("circuit breaker %s: %s → %s", name, from, to))
 		},
 	})
 	fileService := services.NewFileServiceImpl(clientStub, fileBreaker, app.Logger)
+
+	app.Logger.Info("gateway services initialized successfully")
 
 	return &Services{
 		JwtAuth:      jwtAuthSvc,
@@ -148,36 +162,37 @@ func BuildServices(app *App) *Services {
 			Google: googleProvider,
 		},
 
-		Conn: conn,
-	}
+		Conn:   conn,
+		logger: app.Logger,
+	}, nil
 }
 
 func (s *Services) Shutdown(ctx context.Context) error {
-	log.Println("shutting down services")
+	s.logger.Info("shutting down services")
 
 	if s.Stores != nil {
 		if err := s.Stores.Shutdown(ctx); err != nil {
-			log.Printf("stores shutdown error: %v", err)
+			s.logger.Error("stores shutdown failed", "err", err.Error())
 		}
 	}
 
 	if s.Conn != nil {
 		if err := s.Conn.Close(); err != nil {
-			log.Printf("grpc conn close error: %v", err)
+			s.logger.Error("gRPC connection close failed", "err", err.Error())
 		}
 	}
 
-	log.Println("services shutdown complete")
+	s.logger.Info("services shutdown complete")
 	return nil
 }
 
 func (s *Stores) Shutdown(ctx context.Context) error {
-	log.Println("shutting down stores")
+	s.logger.Info("shutting down stores")
 
 	shutdownIfPossible := func(name string, v any) {
 		if sh, ok := v.(Shutdowner); ok {
 			if err := sh.Shutdown(ctx); err != nil {
-				log.Printf("%s store shutdown error: %v", name, err)
+				s.logger.Error(fmt.Sprintf("%s store shutdown failed", name), "err", err.Error())
 			}
 		}
 	}
@@ -186,6 +201,6 @@ func (s *Stores) Shutdown(ctx context.Context) error {
 	shutdownIfPossible("sessions", s.sessions)
 	shutdownIfPossible("uploads", s.uploads)
 
-	log.Println("stores shutdown complete")
+	s.logger.Info("stores shutdown complete")
 	return nil
 }

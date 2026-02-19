@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/ratelimit"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.Default()
-	r.Use(RateLimiterMiddleware(limiter, 3, time.Minute))
+	r.Use(RateLimiterMiddleware(limiter, 3, time.Minute, logger.NullLogger{}))
 
 	r.GET("/test", func(c *gin.Context) {
 		c.String(200, "ok")
