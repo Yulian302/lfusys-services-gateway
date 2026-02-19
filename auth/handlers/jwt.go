@@ -11,20 +11,22 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/responses"
 	"github.com/Yulian302/lfusys-services-gateway/auth/oauth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
-	"github.com/Yulian302/lfusys-services-gateway/services"
+	"github.com/Yulian302/lfusys-services-gateway/services/auth"
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authService services.AuthService
+	jwtAuthSvc   auth.JwtAuthService
+	stateManager auth.StateManager
 
 	logger logger.Logger
 }
 
-func NewAuthHandler(authService services.AuthService, l logger.Logger) *AuthHandler {
+func NewAuthHandler(jwt auth.JwtAuthService, state auth.StateManager, l logger.Logger) *AuthHandler {
 	return &AuthHandler{
-		authService: authService,
-		logger:      l,
+		jwtAuthSvc:   jwt,
+		stateManager: state,
+		logger:       l,
 	}
 }
 
@@ -39,7 +41,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.GetCurrentUser(c.Request.Context(), token)
+	user, err := h.jwtAuthSvc.GetCurrentUser(c.Request.Context(), token)
 	if err != nil {
 		if error.Is(err, errors.ErrUserNotFound) || error.Is(err, errors.ErrInvalidToken) {
 			h.logger.Warn("user authorization failed",
@@ -80,7 +82,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Register(c.Request.Context(), req); err != nil {
+	if err := h.jwtAuthSvc.Register(c.Request.Context(), req); err != nil {
 		if error.Is(err, errors.ErrUserAlreadyExists) {
 			h.logger.Warn("user registration failed",
 				"email", req.Email,
@@ -115,7 +117,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	loginResp, err := h.authService.Login(c.Request.Context(), loginUser.Email, loginUser.Password)
+	loginResp, err := h.jwtAuthSvc.Login(c.Request.Context(), loginUser.Email, loginUser.Password)
 	if err != nil {
 		if error.Is(err, errors.ErrInvalidCredentials) {
 			h.logger.Warn("user login failed",
@@ -171,7 +173,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	tokenPair, err := h.authService.RefreshToken(c.Request.Context(), oldRefreshToken)
+	tokenPair, err := h.jwtAuthSvc.RefreshToken(c.Request.Context(), oldRefreshToken)
 	if err != nil {
 		if error.Is(err, errors.ErrUserNotFound) || error.Is(err, errors.ErrInvalidToken) || error.Is(err, errors.ErrInvalidTokenType) {
 			h.logger.Warn("user refresh token failed",
@@ -220,7 +222,7 @@ func (h *AuthHandler) NewState(c *gin.Context) {
 		return
 	}
 
-	err = h.authService.SaveState(c.Request.Context(), oauth.OAuthPrefix+state)
+	err = h.stateManager.SaveState(c.Request.Context(), oauth.OAuthPrefix+state)
 	if err != nil {
 		h.logger.Error("state generation failed",
 			"ip", c.ClientIP(),

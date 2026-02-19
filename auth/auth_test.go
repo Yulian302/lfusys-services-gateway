@@ -16,7 +16,7 @@ import (
 	"github.com/Yulian302/lfusys-services-gateway/auth/types"
 	authtypes "github.com/Yulian302/lfusys-services-gateway/auth/types"
 	"github.com/Yulian302/lfusys-services-gateway/routers"
-	"github.com/Yulian302/lfusys-services-gateway/services"
+	"github.com/Yulian302/lfusys-services-gateway/services/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -36,9 +36,17 @@ func TestMain(m *testing.M) {
 	mockStore = &mocks.MockDynamoDbStore{}
 
 	r = gin.Default()
-
-	authService := services.NewAuthServiceImpl(mockStore, nil, nil, cfg.JWTConfig.SecretKey, cfg.JWTConfig.RefreshSecretKey, logger.NullLogger{})
-	authHandler := handlers.NewAuthHandler(authService, logger.NullLogger{})
+	stateManager := auth.NewRegisterStateManager(nil, logger.NullLogger{})
+	jwtAuthService := auth.NewJwtAuthServiceImpl(
+		auth.JwtAuthServiceDeps{
+			UserStore:     mockStore,
+			Cache:         nil,
+			AccessSecret:  cfg.JWTConfig.SecretKey,
+			RefreshSecret: cfg.JWTConfig.RefreshSecretKey,
+			Logger:        logger.NullLogger{},
+		},
+	)
+	authHandler := handlers.NewAuthHandler(jwtAuthService, stateManager, logger.NullLogger{})
 	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, &r.RouterGroup)
 
 	os.Exit(m.Run())
