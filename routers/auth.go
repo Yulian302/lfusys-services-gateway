@@ -3,13 +3,14 @@ package routers
 import (
 	authmid "github.com/Yulian302/lfusys-services-gateway/auth"
 	"github.com/Yulian302/lfusys-services-gateway/auth/handlers"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, googleh *handlers.GoogleHandler, jwtSecret string, route *gin.RouterGroup) {
+func RegisterAuthRoutes(jwt *handlers.AuthHandler, gh *handlers.GithubHandler, googleh *handlers.GoogleHandler, jwtSecret string, route *gin.RouterGroup, l logger.Logger) {
 	auth := route.Group("/auth")
 
-	auth.GET("/me", authmid.JWTMiddleware(jwtSecret), jwt.Me)
+	auth.GET("/me", authmid.JWTMiddleware(jwtSecret, l), jwt.Me)
 	auth.POST("/register", jwt.Register)
 	auth.POST("/login", jwt.Login)
 	auth.POST("/refresh", jwt.Refresh)

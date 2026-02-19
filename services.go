@@ -50,15 +50,23 @@ type Shutdowner interface {
 	Shutdown(context.Context) error
 }
 
-func BuildServices(app *App) *Services {
+func BuildServices(app *App) (*Services, error) {
 	conn, err := grpc.NewClient(
 		app.Config.ServiceConfig.SessionGRPCUrl,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
-		panic(err)
+		app.Logger.Error("failed to create gRPC client",
+			"url", app.Config.ServiceConfig.SessionGRPCUrl,
+			"error", err,
+		)
+		return nil, fmt.Errorf("create grpc client: %w", err)
 	}
+
+	app.Logger.Info("gRPC client created successfully",
+		"url", app.Config.ServiceConfig.SessionGRPCUrl,
+	)
 
 	usrStore := store.NewUserStore(app.DynamoDB, app.Config.DynamoDBConfig.UsersTableName)
 	sessStore := store.NewRedisStoreImpl(app.Redis)
@@ -68,7 +76,7 @@ func BuildServices(app *App) *Services {
 	githubProvider := oauth.NewGithubProvider(app.Config.GithubConfig)
 	googleProvider := oauth.NewGoogleProvider(app.Config.GoogleConfig)
 
-	cacheSvc := caching.NewRedisCachingService(app.Redis)
+	cacheSvc := caching.NewRedisCachingService(app.Redis, app.Logger)
 	jwtAuthSvc := auth.NewJwtAuthServiceImpl(
 		auth.JwtAuthServiceDeps{
 			UserStore:     usrStore,
@@ -134,6 +142,8 @@ func BuildServices(app *App) *Services {
 	})
 	fileService := services.NewFileServiceImpl(clientStub, fileBreaker, app.Logger)
 
+	app.Logger.Info("gateway services initialized successfully")
+
 	return &Services{
 		JwtAuth:      jwtAuthSvc,
 		OAuth:        oAuthSvc,
@@ -154,7 +164,7 @@ func BuildServices(app *App) *Services {
 
 		Conn:   conn,
 		logger: app.Logger,
-	}
+	}, nil
 }
 
 func (s *Services) Shutdown(ctx context.Context) error {

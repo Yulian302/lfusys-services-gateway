@@ -75,7 +75,10 @@ func SetupApp() (*App, error) {
 		app.TracerProvider = tp
 	}
 
-	app.Services = BuildServices(app)
+	app.Services, err = BuildServices(app)
+	if err != nil {
+		return nil, fmt.Errorf("build services: %w", err)
+	}
 
 	return app, nil
 }

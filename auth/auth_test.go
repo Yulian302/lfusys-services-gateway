@@ -47,7 +47,7 @@ func TestMain(m *testing.M) {
 		},
 	)
 	authHandler := handlers.NewAuthHandler(jwtAuthService, stateManager, logger.NullLogger{})
-	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, &r.RouterGroup)
+	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, &r.RouterGroup, logger.NullLogger{})
 
 	os.Exit(m.Run())
 }

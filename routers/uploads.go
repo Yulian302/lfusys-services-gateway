@@ -8,7 +8,7 @@ import (
 
 func RegisterUploadsRoutes(h *uploads.UploadsHandler, jwtSecret string, route *gin.RouterGroup) {
 	uploads := route.Group("/uploads")
-	uploads.Use(auth.JWTMiddleware(jwtSecret))
+	uploads.Use(auth.JWTMiddleware(jwtSecret, h.Logger))
 
 	uploads.POST("/start", h.StartUpload)
 	uploads.GET("/:uploadId/status", h.GetUploadStatus)

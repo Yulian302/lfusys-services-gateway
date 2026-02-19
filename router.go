@@ -55,7 +55,7 @@ func applyLogging(r *gin.Engine, logger *slog.Logger) {
 
 func applyRateLimiting(r *gin.Engine, app *App) {
 	rateLimiter := ratelimit.NewRedisRateLimiter(app.Redis)
-	r.Use(middleware.RateLimiterMiddleware(rateLimiter, 100, time.Minute))
+	r.Use(middleware.RateLimiterMiddleware(rateLimiter, 100, time.Minute, app.Logger))
 }
 
 func applyTracing(r *gin.Engine, app *App) {
@@ -94,6 +94,7 @@ func registerRoutes(r *gin.Engine, app *App) {
 		handlers.NewGoogleHandler(app.Config.FrontendURL, app.Config.GoogleConfig, app.Services.OAuth,app.Services.StateManager, app.Services.Stores.users, app.Services.Providers.Google, app.Logger),
 		app.Config.JWTConfig.SecretKey,
 		v1,
+		app.Logger,
 	)
 
 	routers.RegisterUploadsRoutes(

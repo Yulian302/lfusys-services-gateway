@@ -13,13 +13,13 @@ import (
 type FileHandler struct {
 	fileService services.FileService
 
-	logger logger.Logger
+	Logger logger.Logger
 }
 
 func NewFileHandler(fileService services.FileService, l logger.Logger) *FileHandler {
 	return &FileHandler{
 		fileService: fileService,
-		logger:      l,
+		Logger:      l,
 	}
 }
 
@@ -27,7 +27,7 @@ func (h *FileHandler) GetFiles(c *gin.Context) {
 	email := c.GetString("email")
 	resp, err := h.fileService.GetFiles(c.Request.Context(), email)
 	if err != nil {
-		h.logger.Error("failed to get files",
+		h.Logger.Error("failed to get files",
 			"email", email,
 			"error", err,
 		)
@@ -35,7 +35,7 @@ func (h *FileHandler) GetFiles(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("files fetched successfully",
+	h.Logger.Info("files fetched successfully",
 		"email", email,
 		"count", len(resp.Files),
 	)
@@ -46,7 +46,7 @@ func (h *FileHandler) GetFiles(c *gin.Context) {
 func (h *FileHandler) DeleteFile(c *gin.Context) {
 	fileId := c.Param("fileId")
 	if fileId == "" {
-		h.logger.Warn("file id not specified by user")
+		h.Logger.Warn("file id not specified by user")
 		errors.BadRequestResponse(c, "file id must be specified")
 		return
 	}
@@ -54,7 +54,7 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 	email, _ := c.Get("email")
 	err := h.fileService.Delete(c.Request.Context(), fileId)
 	if err != nil {
-		h.logger.Error("failed to get files",
+		h.Logger.Error("failed to get files",
 			"email", email,
 			"error", err,
 		)
@@ -62,7 +62,7 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info(fmt.Sprintf("file %s deleted successfully", fileId),
+	h.Logger.Info(fmt.Sprintf("file %s deleted successfully", fileId),
 		"email", email,
 	)
 
