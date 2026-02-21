@@ -13,7 +13,7 @@ import (
 
 type FileService interface {
 	GetFiles(ctx context.Context, email string) (*types.FilesResponse, error)
-	Delete(ctx context.Context, fileId string) error
+	Delete(ctx context.Context, fileId, ownerEmail string) error
 }
 
 type FileServiceImpl struct {
@@ -79,7 +79,7 @@ func (svc *FileServiceImpl) GetFiles(ctx context.Context, email string) (*types.
 	}, nil
 }
 
-func (svc *FileServiceImpl) Delete(ctx context.Context, fileId string) error {
+func (svc *FileServiceImpl) Delete(ctx context.Context, fileId, ownerEmail string) error {
 	_, err := svc.breaker.Execute(func() (any, error) {
 		grpcCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2*time.Second))
 		defer cancel()
@@ -87,7 +87,8 @@ func (svc *FileServiceImpl) Delete(ctx context.Context, fileId string) error {
 		svc.logger.Info("circuit breaker state is ", svc.breaker.State())
 
 		return svc.clientStub.DeleteFile(grpcCtx, &pb.FileDeleteRequest{
-			FileId: fileId,
+			FileId:     fileId,
+			OwnerEmail: ownerEmail,
 		})
 	})
 	if err != nil {

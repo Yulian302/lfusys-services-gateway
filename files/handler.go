@@ -51,8 +51,8 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	email, _ := c.Get("email")
-	err := h.fileService.Delete(c.Request.Context(), fileId)
+	email := c.GetString("email")
+	err := h.fileService.Delete(c.Request.Context(), fileId, email)
 	if err != nil {
 		h.Logger.Error("failed to get files",
 			"email", email,
