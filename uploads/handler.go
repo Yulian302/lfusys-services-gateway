@@ -4,10 +4,10 @@ import (
 	error "errors"
 	"net/http"
 
-	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-commons/errors"
+	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-gateway/services"
-	uploadstypes "github.com/Yulian302/lfusys-services-gateway/uploads/types"
+	"github.com/Yulian302/lfusys-services-gateway/uploads/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,10 +22,6 @@ func NewUploadsHandler(uploadsService services.UploadsService, l logger.Logger) 
 		uploadsService: uploadsService,
 		Logger:         l,
 	}
-}
-
-type UploadRequest struct {
-	FileSize uint64 `json:"file_size" binding:"required"`
 }
 
 // StartUpload godoc
@@ -50,7 +46,7 @@ func (h *UploadsHandler) StartUpload(c *gin.Context) {
 		return
 	}
 
-	var uploadReq UploadRequest
+	var uploadReq types.UploadRequest
 	if err := c.ShouldBindJSON(&uploadReq); err != nil {
 		h.Logger.Warn("start upload failed",
 			"email", email,
@@ -60,7 +56,7 @@ func (h *UploadsHandler) StartUpload(c *gin.Context) {
 		return
 	}
 
-	uploadResp, err := h.uploadsService.StartUpload(c.Request.Context(), email, int64(uploadReq.FileSize))
+	uploadResp, err := h.uploadsService.StartUpload(c.Request.Context(), email, uploadReq)
 	if err != nil {
 		if error.Is(err, errors.ErrFileSizeExceeded) || error.Is(err, errors.ErrFileSizeInvalid) {
 			h.Logger.Warn("start upload failed",
@@ -96,7 +92,7 @@ func (h *UploadsHandler) StartUpload(c *gin.Context) {
 		"upload_id", uploadResp.UploadId,
 		"total_chunks", uploadResp.TotalChunks,
 	)
-	c.JSON(http.StatusOK, uploadstypes.UploadResponse{
+	c.JSON(http.StatusOK, types.UploadResponse{
 		TotalChunks: uploadResp.TotalChunks,
 		UploadId:    uploadResp.UploadId,
 	})
