@@ -13,4 +13,5 @@ func RegisterFileRoutes(h *files.FileHandler, jwtSecret string, route *gin.Route
 
 	files.GET("/", h.GetFiles)
 	files.DELETE("/:fileId", h.DeleteFile)
+	files.GET("/:fileId/download", h.GetDownloadURL)
 }

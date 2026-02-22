@@ -6,6 +6,8 @@ type File struct {
 	FileId      string    `json:"file_id"`      // Unique file identifier
 	UploadId    string    `json:"upload_id"`    // Corresponding upload id
 	OwnerEmail  string    `json:"owner_email"`  // File owner email
+	Name        string    `json:"name"`         // File name
+	Type        string    `json:"type"`         // File type
 	Size        uint64    `json:"file_size"`    // Size of a file
 	TotalChunks uint32    `json:"total_chunks"` // Number of 5MB file chunks
 	Checksum    string    `json:"checksum"`     // File checksum

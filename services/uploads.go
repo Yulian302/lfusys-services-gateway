@@ -9,15 +9,15 @@ import (
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	logger "github.com/Yulian302/lfusys-services-commons/logging"
 	"github.com/Yulian302/lfusys-services-gateway/store"
-	uploadstypes "github.com/Yulian302/lfusys-services-gateway/uploads/types"
+	"github.com/Yulian302/lfusys-services-gateway/uploads/types"
 	"github.com/sony/gobreaker/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type UploadsService interface {
-	StartUpload(ctx context.Context, email string, fileSize int64) (*uploadstypes.UploadResponse, error)
-	GetUploadStatus(ctx context.Context, uploadID string) (*uploadstypes.UploadStatusResponse, error)
+	StartUpload(ctx context.Context, email string, upload types.UploadRequest) (*types.UploadResponse, error)
+	GetUploadStatus(ctx context.Context, uploadID string) (*types.UploadStatusResponse, error)
 }
 
 type UploadsServiceDeps struct {
@@ -33,7 +33,7 @@ type UploadsServiceImpl struct {
 	uploadsStore store.UploadsStore
 	clientStub   pb.UploaderClient
 	breaker      *gobreaker.CircuitBreaker[*pb.UploadReply]
-	maxFileSize  int64
+	maxFileSize  uint64
 	chunkSize    int64
 
 	logger logger.Logger
@@ -50,10 +50,13 @@ func NewUploadsService(deps UploadsServiceDeps) *UploadsServiceImpl {
 	}
 }
 
-func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, fileSize int64) (*uploadstypes.UploadResponse, error) {
+func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, upload types.UploadRequest) (*types.UploadResponse, error) {
+	fileSize := upload.FileSize
 	if fileSize <= 0 {
 		s.logger.Warn("start upload validation failed",
 			"email", email,
+			"file_name", upload.FileName,
+			"file_type", upload.FileType,
 			"file_size", fileSize,
 			"reason", "invalid_file_size",
 		)
@@ -63,6 +66,8 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 	if fileSize > s.maxFileSize {
 		s.logger.Warn("start upload validation failed",
 			"email", email,
+			"file_name", upload.FileName,
+			"file_type", upload.FileType,
 			"file_size", fileSize,
 			"max_file_size", s.maxFileSize,
 			"reason", "file_size_exceeded",
@@ -76,7 +81,9 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 
 		return s.clientStub.StartUpload(grpcCtx, &pb.UploadRequest{
 			UserEmail: email,
-			FileSize:  uint64(fileSize),
+			FileName:  upload.FileName,
+			FileType:  upload.FileType,
+			FileSize:  fileSize,
 			ChunkSize: uint64(s.chunkSize),
 		})
 	})
@@ -85,6 +92,8 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 		if status.Code(err) == codes.ResourceExhausted {
 			s.logger.Warn("start upload grpc failed",
 				"email", email,
+				"file_name", upload.FileName,
+				"file_type", upload.FileType,
 				"file_size", fileSize,
 				"reason", "resource_exhausted",
 			)
@@ -93,6 +102,8 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 		if status.Code(err) == codes.Unavailable {
 			s.logger.Error("start upload grpc failed",
 				"email", email,
+				"file_name", upload.FileName,
+				"file_type", upload.FileType,
 				"file_size", fileSize,
 				"reason", "service_unavailable",
 			)
@@ -100,6 +111,8 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 		}
 		s.logger.Error("start upload grpc failed",
 			"email", email,
+			"file_name", upload.FileName,
+			"file_type", upload.FileType,
 			"file_size", fileSize,
 			"error", err,
 		)
@@ -108,18 +121,20 @@ func (s *UploadsServiceImpl) StartUpload(ctx context.Context, email string, file
 
 	s.logger.Info("upload started",
 		"email", email,
+		"file_name", upload.FileName,
+		"file_type", upload.FileType,
 		"file_size", fileSize,
 		"upload_id", res.UploadId,
 		"total_chunks", res.TotalChunks,
 	)
 
-	return &uploadstypes.UploadResponse{
+	return &types.UploadResponse{
 		TotalChunks: res.TotalChunks,
 		UploadId:    res.UploadId,
 	}, nil
 }
 
-func (s *UploadsServiceImpl) GetUploadStatus(ctx context.Context, uploadID string) (*uploadstypes.UploadStatusResponse, error) {
+func (s *UploadsServiceImpl) GetUploadStatus(ctx context.Context, uploadID string) (*types.UploadStatusResponse, error) {
 	uploadStatusOut, err := s.clientStub.GetUploadStatus(ctx, &pb.UploadID{
 		UploadId: uploadID,
 	})
@@ -151,7 +166,7 @@ func (s *UploadsServiceImpl) GetUploadStatus(ctx context.Context, uploadID strin
 		"progress", uploadStatusOut.Progress,
 	)
 
-	return &uploadstypes.UploadStatusResponse{
+	return &types.UploadStatusResponse{
 		Status:   uploadStatusOut.Status,
 		Progress: uploadStatusOut.Progress,
 		Message:  uploadStatusOut.Message,

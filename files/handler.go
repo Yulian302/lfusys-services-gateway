@@ -2,6 +2,8 @@ package files
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	logger "github.com/Yulian302/lfusys-services-commons/logging"
@@ -67,4 +69,47 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 	)
 
 	responses.JSONDeleted(c, "success")
+}
+
+func (h *FileHandler) GetDownloadURL(c *gin.Context) {
+	fileId := c.Param("fileId")
+	if fileId == "" {
+		h.Logger.Warn("file id not specified by user")
+		errors.BadRequestResponse(c, "file id must be specified")
+		return
+	}
+	email := c.GetString("email")
+
+	file, err := h.fileService.GetByID(c.Request.Context(), fileId, email)
+	if err != nil {
+		h.Logger.Warn("get download url failed", "reason", "file not found")
+		errors.NotFoundResponse(c, "file not found")
+		return
+	}
+
+	// ownership check
+	if file.OwnerEmail != email {
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
+	url, err := h.fileService.GetDownloadURL(
+		c.Request.Context(),
+		fileId,
+		5*time.Minute,
+	)
+	if err != nil {
+		h.Logger.Error("get download url failed", "err", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate url"})
+		return
+	}
+
+	h.Logger.Info("get download url for success", "file_id", fileId)
+
+	responses.JSONData(c, 200, gin.H{
+		"url":                url,
+		"file_name":          file.Name,
+		"file_type":          file.Type,
+		"expires_in_seconds": 900,
+	})
 }
