@@ -8,7 +8,6 @@ import (
 	pb "github.com/Yulian302/lfusys-services-commons/api/uploader/v1"
 	"github.com/Yulian302/lfusys-services-commons/errors"
 	logger "github.com/Yulian302/lfusys-services-commons/logging"
-	"github.com/Yulian302/lfusys-services-gateway/store"
 	"github.com/Yulian302/lfusys-services-gateway/uploads/types"
 	"github.com/sony/gobreaker/v2"
 	"google.golang.org/grpc/codes"
@@ -21,7 +20,6 @@ type UploadsService interface {
 }
 
 type UploadsServiceDeps struct {
-	Store     store.UploadsStore
 	Client    pb.UploaderClient
 	Breaker   *gobreaker.CircuitBreaker[*pb.UploadReply]
 	ChunkSize int64
@@ -30,23 +28,21 @@ type UploadsServiceDeps struct {
 }
 
 type UploadsServiceImpl struct {
-	uploadsStore store.UploadsStore
-	clientStub   pb.UploaderClient
-	breaker      *gobreaker.CircuitBreaker[*pb.UploadReply]
-	maxFileSize  uint64
-	chunkSize    int64
+	clientStub  pb.UploaderClient
+	breaker     *gobreaker.CircuitBreaker[*pb.UploadReply]
+	maxFileSize uint64
+	chunkSize   int64
 
 	logger logger.Logger
 }
 
 func NewUploadsService(deps UploadsServiceDeps) *UploadsServiceImpl {
 	return &UploadsServiceImpl{
-		uploadsStore: deps.Store,
-		clientStub:   deps.Client,
-		breaker:      deps.Breaker,
-		maxFileSize:  10 * 1024 * 1024 * 1024,
-		chunkSize:    deps.ChunkSize,
-		logger:       deps.Logger,
+		clientStub:  deps.Client,
+		breaker:     deps.Breaker,
+		maxFileSize: 10 * 1024 * 1024 * 1024,
+		chunkSize:   deps.ChunkSize,
+		logger:      deps.Logger,
 	}
 }
 

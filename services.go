@@ -21,7 +21,6 @@ import (
 type Stores struct {
 	users    store.UserStore
 	sessions store.SessionStore
-	uploads  store.UploadsStore
 
 	logger logger.Logger
 }
@@ -70,7 +69,6 @@ func BuildServices(app *App) (*Services, error) {
 
 	usrStore := store.NewUserStore(app.DynamoDB, app.Config.DynamoDBConfig.UsersTableName)
 	sessStore := store.NewRedisStoreImpl(app.Redis)
-	upStore := store.NewUploadsStore(app.DynamoDB, app.Config.DynamoDBConfig.UploadsTableName)
 	clientStub := pb.NewUploaderClient(conn)
 
 	githubProvider := oauth.NewGithubProvider(app.Config.GithubConfig)
@@ -118,7 +116,6 @@ func BuildServices(app *App) (*Services, error) {
 		chunkSize = 5 * 1024 * 1024
 	}
 	uploadsService := services.NewUploadsService(services.UploadsServiceDeps{
-		Store:     upStore,
 		Client:    clientStub,
 		Breaker:   uploadsBreaker,
 		ChunkSize: chunkSize,
@@ -154,7 +151,6 @@ func BuildServices(app *App) (*Services, error) {
 		Stores: &Stores{
 			users:    usrStore,
 			sessions: sessStore,
-			uploads:  upStore,
 		},
 
 		Providers: &Providers{
@@ -199,7 +195,6 @@ func (s *Stores) Shutdown(ctx context.Context) error {
 
 	shutdownIfPossible("users", s.users)
 	shutdownIfPossible("sessions", s.sessions)
-	shutdownIfPossible("uploads", s.uploads)
 
 	s.logger.Info("stores shutdown complete")
 	return nil
