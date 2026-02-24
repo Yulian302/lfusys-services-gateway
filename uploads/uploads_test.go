@@ -31,7 +31,6 @@ func TestMain(m *testing.M) {
 	mockStore = &mocks.MockDynamoDbStore{}
 	uploadsService := services.NewUploadsService(
 		services.UploadsServiceDeps{
-			Store:     mockStore,
 			Client:    nil,
 			Breaker:   nil,
 			ChunkSize: 128 * 1024,
