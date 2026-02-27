@@ -25,7 +25,7 @@ type GithubHandler struct {
 	logger logger.Logger
 }
 
-func NewGithubHandler(frontendUrl string, ghCfg *config.GithubConfig, oauth auth.OAuthService, state auth.StateManager, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GithubHandler {
+func NewGithubHandler(frontendUrl string, ghCfg config.GithubConfig, oauth auth.OAuthService, state auth.StateManager, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GithubHandler {
 	return &GithubHandler{
 		frontendURL:   frontendUrl,
 		oAuthSvc:      oauth,

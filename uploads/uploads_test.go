@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	cfg       config.Config
 	mockStore *mocks.MockDynamoDbStore
 	r         *gin.Engine
 )
@@ -27,7 +26,7 @@ func TestMain(m *testing.M) {
 
 	r = gin.Default()
 
-	cfg = config.LoadConfig()
+	cfg, _ := config.LoadConfig(config.ConfigOptions{}, config.Gateway)
 	mockStore = &mocks.MockDynamoDbStore{}
 	uploadsService := services.NewUploadsService(
 		services.UploadsServiceDeps{
@@ -39,7 +38,7 @@ func TestMain(m *testing.M) {
 	)
 	uploadsHandler := uploads.NewUploadsHandler(uploadsService, nil)
 
-	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWTConfig.SecretKey, &r.RouterGroup)
+	routers.RegisterUploadsRoutes(uploadsHandler, cfg.JWT.SecretKey, &r.RouterGroup)
 
 	os.Exit(m.Run())
 }

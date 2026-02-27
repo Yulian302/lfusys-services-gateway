@@ -12,11 +12,11 @@ import (
 )
 
 type googleProvider struct {
-	cfg    *config.GoogleConfig
+	cfg    config.GoogleConfig
 	client *auth.Client
 }
 
-func NewGoogleProvider(cfg *config.GoogleConfig) *googleProvider {
+func NewGoogleProvider(cfg config.GoogleConfig) *googleProvider {
 	return &googleProvider{
 		cfg:    cfg,
 		client: auth.NewClient(10 * time.Second),
