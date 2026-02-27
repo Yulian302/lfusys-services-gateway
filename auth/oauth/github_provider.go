@@ -13,11 +13,11 @@ import (
 )
 
 type githubProvider struct {
-	cfg    *config.GithubConfig
+	cfg    config.GithubConfig
 	client *auth.Client
 }
 
-func NewGithubProvider(cfg *config.GithubConfig) *githubProvider {
+func NewGithubProvider(cfg config.GithubConfig) *githubProvider {
 	return &githubProvider{
 		cfg:    cfg,
 		client: auth.NewClient(10 * time.Second),

@@ -26,7 +26,7 @@ type GoogleHandler struct {
 	logger logger.Logger
 }
 
-func NewGoogleHandler(frontendURL string, ghCfg *config.GoogleConfig, oauth auth.OAuthService, state auth.StateManager, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GoogleHandler {
+func NewGoogleHandler(frontendURL string, ghCfg config.GoogleConfig, oauth auth.OAuthService, state auth.StateManager, userStore store.UserStore, prov oauth.Provider, l logger.Logger) *GoogleHandler {
 	return &GoogleHandler{
 		frontendURL:   frontendURL,
 		oAuthSvc:      oauth,

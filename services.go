@@ -51,44 +51,44 @@ type Shutdowner interface {
 
 func BuildServices(app *App) (*Services, error) {
 	conn, err := grpc.NewClient(
-		app.Config.ServiceConfig.SessionGRPCUrl,
+		app.Config.Service.Gateway.SessionsGRPCUrl,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		app.Logger.Error("failed to create gRPC client",
-			"url", app.Config.ServiceConfig.SessionGRPCUrl,
+			"url", app.Config.Service.Gateway.SessionsGRPCUrl,
 			"error", err,
 		)
 		return nil, fmt.Errorf("create grpc client: %w", err)
 	}
 
 	app.Logger.Info("gRPC client created successfully",
-		"url", app.Config.ServiceConfig.SessionGRPCUrl,
+		"url", app.Config.Service.Gateway.SessionsGRPCUrl,
 	)
 
-	usrStore := store.NewUserStore(app.DynamoDB, app.Config.DynamoDBConfig.UsersTableName)
+	usrStore := store.NewUserStore(app.DynamoDB, app.Config.DynamoDB.UsersTableName)
 	sessStore := store.NewRedisStoreImpl(app.Redis)
 	clientStub := pb.NewUploaderClient(conn)
 
-	githubProvider := oauth.NewGithubProvider(app.Config.GithubConfig)
-	googleProvider := oauth.NewGoogleProvider(app.Config.GoogleConfig)
+	githubProvider := oauth.NewGithubProvider(app.Config.OAuth.Github)
+	googleProvider := oauth.NewGoogleProvider(app.Config.OAuth.Google)
 
 	cacheSvc := caching.NewRedisCachingService(app.Redis, app.Logger)
 	jwtAuthSvc := auth.NewJwtAuthServiceImpl(
 		auth.JwtAuthServiceDeps{
 			UserStore:     usrStore,
 			Cache:         cacheSvc,
-			AccessSecret:  app.Config.JWTConfig.SecretKey,
-			RefreshSecret: app.Config.JWTConfig.RefreshSecretKey,
+			AccessSecret:  app.Config.JWT.SecretKey,
+			RefreshSecret: app.Config.JWT.RefreshSecretKey,
 			Logger:        app.Logger,
 		},
 	)
 	oAuthSvc := auth.NewOAuthServiceImpl(auth.OAuthServiceDeps{
 		UserStore:     usrStore,
 		Cache:         cacheSvc,
-		AccessSecret:  app.Config.JWTConfig.SecretKey,
-		RefreshSecret: app.Config.JWTConfig.RefreshSecretKey,
+		AccessSecret:  app.Config.JWT.SecretKey,
+		RefreshSecret: app.Config.JWT.RefreshSecretKey,
 		Logger:        app.Logger,
 	})
 	regStateManager := auth.NewRegisterStateManager(sessStore, app.Logger)

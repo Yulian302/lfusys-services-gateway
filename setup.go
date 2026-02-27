@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	common "github.com/Yulian302/lfusys-services-commons"
@@ -25,8 +24,7 @@ type App struct {
 	DynamoDB *dynamodb.Client
 	Redis    *redis.Client
 
-	Config    config.Config
-	AwsConfig aws.Config
+	Config config.Config
 
 	Services       *Services
 	TracerProvider *trace.TracerProvider
@@ -34,17 +32,23 @@ type App struct {
 }
 
 func SetupApp() (*App, error) {
-	cfg := config.LoadConfig()
-
-	if err := cfg.ValidateAllSecrets(); err != nil {
+	cfg, err := config.LoadConfig(config.ConfigOptions{
+		LoadCors:     true,
+		LoadAWS:      true,
+		LoadJwtAuth:  true,
+		LoadOAuth:    true,
+		LoadDynamoDB: true,
+		LoadRedis:    true,
+	}, config.Gateway)
+	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	if strings.EqualFold(cfg.Env, "PROD") {
+	if cfg.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	awsCfg, err := initAWS(*cfg.AWSConfig)
+	awsCfg, err := initAWS(cfg.AWS)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +58,7 @@ func SetupApp() (*App, error) {
 		return nil, errors.New("could not init dynamodb")
 	}
 
-	rdb := initRedis(*cfg.RedisConfig)
+	rdb := initRedis(cfg.Redis)
 	if rdb == nil {
 		return nil, errors.New("could not init redis")
 	}
@@ -65,9 +69,8 @@ func SetupApp() (*App, error) {
 		DynamoDB: db,
 		Redis:    rdb,
 
-		Config:    cfg,
-		AwsConfig: awsCfg,
-		Logger:    appLogger,
+		Config: cfg,
+		Logger: appLogger,
 	}
 
 	if cfg.Tracing {
@@ -90,7 +93,7 @@ func SetupApp() (*App, error) {
 
 func (a *App) Run(r *gin.Engine) error {
 	a.Server = &http.Server{
-		Addr:         a.Config.GatewayAddr,
+		Addr:         a.Config.Service.Gateway.Addr,
 		Handler:      r,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

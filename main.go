@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"os"
+	"log"
 	"os/signal"
 	"syscall"
 	"time"
@@ -30,8 +30,7 @@ func main() {
 
 	app, err := SetupApp()
 	if err != nil {
-		app.Logger.Error("app initialization failed", "reason", "wrong_setup")
-		os.Exit(1)
+		log.Fatalf("app initialization failed. Error: %s", err.Error())
 	}
 
 	router := BuildRouter(app)

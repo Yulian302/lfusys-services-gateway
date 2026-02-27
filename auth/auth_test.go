@@ -31,7 +31,9 @@ var (
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
 
-	cfg = config.LoadConfig()
+	cfg, _ := config.LoadConfig(config.ConfigOptions{
+		LoadJwtAuth: true,
+	}, config.Gateway)
 
 	mockStore = &mocks.MockDynamoDbStore{}
 
@@ -41,13 +43,13 @@ func TestMain(m *testing.M) {
 		auth.JwtAuthServiceDeps{
 			UserStore:     mockStore,
 			Cache:         nil,
-			AccessSecret:  cfg.JWTConfig.SecretKey,
-			RefreshSecret: cfg.JWTConfig.RefreshSecretKey,
+			AccessSecret:  cfg.JWT.SecretKey,
+			RefreshSecret: cfg.JWT.RefreshSecretKey,
 			Logger:        logger.NullLogger{},
 		},
 	)
 	authHandler := handlers.NewAuthHandler(jwtAuthService, stateManager, logger.NullLogger{})
-	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWTConfig.SecretKey, &r.RouterGroup, logger.NullLogger{})
+	routers.RegisterAuthRoutes(authHandler, nil, nil, cfg.JWT.SecretKey, &r.RouterGroup, logger.NullLogger{})
 
 	os.Exit(m.Run())
 }
