@@ -110,7 +110,7 @@ func BuildServices(app *App) (*Services, error) {
 	})
 
 	var chunkSize int64
-	if app.Config.Env == "DEV" {
+	if app.Config.IsDevelopment() {
 		chunkSize = 128 * 1024
 	} else {
 		chunkSize = 5 * 1024 * 1024
