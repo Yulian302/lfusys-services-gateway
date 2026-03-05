@@ -145,7 +145,7 @@ func (s *JwtAuthServiceImpl) GetCurrentUser(ctx context.Context, accessToken str
 		Name:  user.Name,
 	})
 	if err == nil {
-		if err = s.cachingSvc.Set(ctx, userKey, string(b), 30*time.Minute); err != nil {
+		if err = s.cachingSvc.Set(ctx, userKey, string(b), caching.SessionTTL); err != nil {
 			s.logger.Debug("could not save user data in cache",
 				"email", claims.Subject,
 				"error", err,
