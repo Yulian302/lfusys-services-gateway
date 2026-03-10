@@ -17,6 +17,7 @@ import (
 type UploadsService interface {
 	StartUpload(ctx context.Context, email string, upload types.UploadRequest) (*types.UploadResponse, error)
 	GetUploadStatus(ctx context.Context, uploadID string) (*types.UploadStatusResponse, error)
+	GetUploadedChunks(ctx context.Context, uploadId string) (*types.UploadedChunksResponse, error)
 }
 
 type UploadsServiceDeps struct {
@@ -166,5 +167,37 @@ func (s *UploadsServiceImpl) GetUploadStatus(ctx context.Context, uploadID strin
 		Status:   uploadStatusOut.Status,
 		Progress: uploadStatusOut.Progress,
 		Message:  uploadStatusOut.Message,
+	}, nil
+}
+
+func (s *UploadsServiceImpl) GetUploadedChunks(ctx context.Context, uploadId string) (*types.UploadedChunksResponse, error) {
+	reply, err := s.clientStub.GetUploadedChunks(
+		ctx,
+		&pb.UploadID{
+			UploadId: uploadId,
+		},
+	)
+	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			s.logger.Error("get uploaded chunks failed",
+				"upload_id", uploadId,
+				"reason", "service_unavailable",
+			)
+			return nil, fmt.Errorf("%w", errors.ErrServiceUnavailable)
+		}
+		s.logger.Error("get uploaded chunks failed",
+			"upload_id", uploadId,
+			"error", err,
+		)
+		return nil, fmt.Errorf("could not get uploaded chunks: %w", err)
+	}
+
+	s.logger.Debug("uploaded chunks retrieved",
+		"upload_id", uploadId,
+		"chunks", reply.Chunks,
+	)
+
+	return &types.UploadedChunksResponse{
+		Chunks: reply.Chunks,
 	}, nil
 }
