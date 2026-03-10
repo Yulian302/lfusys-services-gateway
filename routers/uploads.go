@@ -12,4 +12,5 @@ func RegisterUploadsRoutes(h *uploads.UploadsHandler, jwtSecret string, route *g
 
 	uploads.POST("/start", h.StartUpload)
 	uploads.GET("/:uploadId/status", h.GetUploadStatus)
+	uploads.GET("/:uploadId/chunks", h.GetUploadedChunks)
 }

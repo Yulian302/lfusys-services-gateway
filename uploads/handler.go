@@ -143,3 +143,49 @@ func (h *UploadsHandler) GetUploadStatus(c *gin.Context) {
 	)
 	c.JSON(http.StatusOK, resp)
 }
+
+func (h *UploadsHandler) GetUploadedChunks(c *gin.Context) {
+	uploadId := c.Param("uploadId")
+	if uploadId == "" {
+		h.Logger.Warn("get uploaded chunks failed",
+			"reason", "upload_id_missing",
+		)
+		errors.BadRequestResponse(c, "upload id is required")
+		return
+	}
+
+	resp, err := h.uploadsService.GetUploadedChunks(c.Request.Context(), uploadId)
+	if err != nil {
+		if error.Is(err, errors.ErrGrpcFailed) {
+			h.Logger.Error("get uploaded chunks status failed",
+				"upload_id", uploadId,
+				"reason", "grpc_failed",
+			)
+			errors.InternalServerErrorResponse(c, "grpc failed")
+		} else if error.Is(err, errors.ErrServiceUnavailable) {
+			h.Logger.Error("get uploaded chunks status failed",
+				"upload_id", uploadId,
+				"reason", "service_unavailable",
+			)
+			errors.ServiceUnavailableResponse(c, "upload service unavailable")
+		} else if error.Is(err, errors.ErrSessionNotFound) {
+			h.Logger.Warn("get uploaded chunks status failed",
+				"upload_id", uploadId,
+				"reason", "session_not_found",
+			)
+			errors.ForbiddenResponse(c, "upload session not found")
+		} else {
+			h.Logger.Error("get uploaded chunks status failed",
+				"upload_id", uploadId,
+				"error", err,
+			)
+			errors.InternalServerErrorResponse(c, err.Error())
+		}
+		return
+	}
+
+	h.Logger.Debug("uploaded chunks retrieved successfully",
+		"upload_id", uploadId,
+	)
+	c.JSON(http.StatusOK, resp)
+}
